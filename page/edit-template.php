@@ -9,8 +9,7 @@ Typecho\Widget::widget('Notice_libs_TestAction')->to($files);
             <div class="typecho-page-title">
                 <h2><?= $files->getTitle(); ?></h2>
             </div>
-            <div class="row typecho-page-main" role="main">
-                <div class="typecho-edit-theme">
+            <div class="row typecho-page-main typecho-edit-theme" role="main">
                     <div class="col-mb-12 col-tb-8 col-9 content">
                         <form method="post" name="theme" id="theme"
                               action="<?php $options->index('/action/' . TypechoPlugin\Notice\Plugin::$action_edit_template); ?>">
