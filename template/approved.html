@@ -1,23 +1,32 @@
-<div style="width: 550px;height: auto;border-radius: 5px;margin:0 auto;border:1px solid #ffb0b0;box-shadow: 0px 0px 20px #888888;position: relative;">
-    <div style="background-image: url(https://ae01.alicdn.com/kf/H5409eaf547d74ea2b4752d279d79a092Z.jpg);width:550px;height: 250px;background-size: cover;background-repeat: no-repeat;border-radius: 5px 5px 0px 0px;"></div>
-    <div style="background-color:white;line-height:180%;padding:0 15px 12px;width:520px;margin:10px auto;color:#555555;font-family:'Century Gothic','Trebuchet MS','Hiragino Sans GB',微软雅黑,'Microsoft Yahei',Tahoma,Helvetica,Arial,'SimSun',sans-serif;font-size:12px;margin-bottom: 0px;">
-        <h2 style="border-bottom:1px solid #DDD;font-size:14px;font-weight:normal;padding:13px 0 10px 8px;"><span style="color: #12ADDB;font-weight: bold;">&gt; </span>您在文章<a style="text-decoration:none;color: #12ADDB;" href="{permalink}" target="_blank">《{title}》</a>的评论已被审核通过呐~</h2>
-        <div style="padding:0 12px 0 12px;margin-top:18px">
-            <p>时间：<span style="border-bottom:1px dashed #ccc;" t="5" times=" 20:42">{time}</span></p>
-            <p><strong>{author}</strong>&nbsp;的评论：</p>
-            <p style="background-color: #f5f5f5;border: 0px solid #DDD;padding: 10px 15px;margin:18px 0">
-                {text}
-            </p>
-            <p>其他信息：</p>
-            <p style="background-color: #f5f5f5;border: 0px solid #DDD;padding: 10px 15px;margin:18px 0">
-                IP：{ip}<br />
-                邮箱：<a href="mailto:{mail}">{mail}</a><br />
-                状态：{status}
-            </p>
+<div style="margin:0;padding:24px 12px;background:#f6f1fb;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+    <div style="width:100%;max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e9ddff;border-radius:28px;overflow:hidden;box-shadow:0 20px 44px rgba(76,52,125,0.12);">
+        <div style="padding:30px 32px 26px;background-color:#6750a4;background-image:linear-gradient(135deg,#6750a4 0%,#7f67be 58%,#9a8ad1 100%);color:#ffffff;">
+            <div style="font-size:30px;line-height:1.2;font-weight:800;letter-spacing:0.02em;">{siteTitle}</div>
+            <div style="margin-top:12px;display:inline-block;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,0.18);font-size:12px;line-height:1;font-weight:700;">审核通过通知</div>
+            <div style="margin-top:18px;font-size:24px;line-height:1.5;font-weight:700;">您在《{title}》下的评论已通过审核</div>
+            <div style="margin-top:10px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.88);">{author} 的评论已于 {time} 通过审核，当前状态为 {status}。</div>
         </div>
-    </div>
-    <a style="text-decoration: none;color: rgb(255, 255, 255);width: 40%;text-align: center;background-color: rgb(255, 114, 114);height: 40px;line-height: 40px;box-shadow: 3px 3px 3px rgba(0, 0, 0, 0.3);display: block;margin: auto;" href="{permalink}" target="_blank">查看回复的完整內容</a>
-    <div style="color:#8c8c8c;;font-family: 'Century Gothic','Trebuchet MS','Hiragino Sans GB',微软雅黑,'Microsoft Yahei',Tahoma,Helvetica,Arial,'SimSun',sans-serif;font-size: 10px;width: 100%;text-align: center;">
-        <p>&copy;2017-2019 Copyright ruixiaolu.com</p>
+        <div style="padding:28px 32px 0;color:#2d2438;">
+            <div style="font-size:13px;line-height:1;font-weight:800;letter-spacing:0.08em;color:#6750a4;">评论内容</div>
+            <div style="margin-top:14px;padding:18px 20px;border-radius:22px;background:#f7f2ff;border:1px solid #ece2ff;font-size:15px;line-height:1.9;color:#2d2438;word-break:break-word;">
+                {text}
+            </div>
+            <div style="margin-top:18px;padding:18px 20px;border-radius:22px;background:#fcfaff;border:1px solid #efe6fb;font-size:14px;line-height:1.9;color:#5f5770;">
+                <div>评论者：{author}</div>
+                <div>评论邮箱：<a style="color:#6750a4;text-decoration:none;" href="mailto:{mail}">{mail}</a></div>
+                <div>评论 IP：{ip}</div>
+                <div>评论状态：{status}</div>
+            </div>
+        </div>
+        <div style="padding:24px 20px 0;text-align:center;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:320px;margin:0 auto;">
+                <tr>
+                    <td>
+                        <a style="display:block;width:100%;padding:14px 20px;border-radius:999px;background-color:#6750a4;background-image:linear-gradient(135deg,#6750a4 0%,#7f67be 100%);color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;box-sizing:border-box;box-shadow:0 12px 24px rgba(103,80,164,0.24);" href="{permalink}" target="_blank">查看评论</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div style="padding:24px 32px 30px;text-align:center;font-size:12px;line-height:1.8;color:#8d849f;">此邮件由 {siteTitle} 自动发送，请勿直接回复。</div>
     </div>
 </div>
