@@ -26,235 +26,269 @@ use const TypechoPlugin\Notice\__TYPECHO_PLUGIN_NOTICE_VERSION__;
 
 class Config
 {
-    public static function style(Typecho\Widget\Helper\Form $form)
+    public static function style(?Typecho\Widget\Helper\Form $form = null)
     {
         $option = Utils\Helper::options();
+        $cssVersion = @filemtime(__DIR__ . '/../assets/notice.css') ?: __TYPECHO_PLUGIN_NOTICE_VERSION__;
+        $jsVersion = @filemtime(__DIR__ . '/../assets/notice.js') ?: __TYPECHO_PLUGIN_NOTICE_VERSION__;
         echo '<link href="https://cdn.jsdelivr.net/npm/mdui@0.4.3/dist/css/mdui.min.css" rel="stylesheet">';
         echo '<script src="https://cdn.jsdelivr.net/npm/mdui@0.4.3/dist/js/mdui.min.js"></script>';
         echo '<script src="https://cdn.jsdelivr.net/npm/jquery@2.2.4/dist/jquery.min.js" type="text/javascript"></script>';
-        echo '<link href="' . $option->pluginUrl . '/Notice/assets/notice.css" rel="stylesheet" type="text/css"/>';
-        echo '<script src="' . $option->pluginUrl . '/Notice/assets/notice.js"></script>';
+        echo '<link href="' . $option->pluginUrl . '/Notice/assets/notice.css?v=' . $cssVersion . '" rel="stylesheet" type="text/css"/>';
+        echo '<script src="' . $option->pluginUrl . '/Notice/assets/notice.js?v=' . $jsVersion . '"></script>';
     }
 
     public static function header(Typecho\Widget\Helper\Form $form)
     {
         $db = Typecho\Db::get();
-        if ($db->fetchRow($db->select()->from('table.options')->where('name = ?', 'plugin:Notice-Backup'))) {
-            $backupExist = '<div class="mdui-chip"><span class="mdui-chip-icon mdui-color-green"><i class="mdui-icon material-icons">backup</i></span><span
-        class="mdui-chip-title mdui-text-color-light-blue">数据库中存在插件配置备份</span></div>';
-        } else {
-            $backupExist = '<div class="mdui-chip"><span class="mdui-chip-icon mdui-color-red"><i class="mdui-icon material-icons">backup</i></span><span 
-        class="mdui-chip-title mdui-text-color-red">数据库没有插件配置备份</span></div>';
-        }
+        $version = __TYPECHO_PLUGIN_NOTICE_VERSION__;
+        $hasBackup = $db->fetchRow($db->select()->from('table.options')->where('name = ?', 'plugin:Notice-Backup'));
+        $backupBadge = $hasBackup
+            ? '<span class="notice-md3-pill notice-md3-pill-success">已检测到配置备份</span>'
+            : '<span class="notice-md3-pill notice-md3-pill-danger">当前没有配置备份</span>';
+
         $tag = Notice\libs\Version::getNewRelease();
-        $tag_compare = version_compare(__TYPECHO_PLUGIN_NOTICE_VERSION__, $tag);
-        if ($tag_compare < 0) {
-            $update = '<div class="mdui-chip"><span class="mdui-chip-icon mdui-color-red"><i class="mdui-icon material-icons">system_update_alt</i></span>
-                <span class="mdui-chip-title mdui-text-color-red">新版本' . $tag . '已可用</span></div>';
-        } elseif ($tag_compare == 0) {
-            $update = '<div class="mdui-chip"><span class="mdui-chip-icon mdui-color-green"><i class="mdui-icon material-icons">cloud_done</i></span>
-                <span class="mdui-chip-title mdui-text-color-light-blue">当前是最新版本</span></div>';
+        $tagCompare = version_compare($version, $tag);
+        if ($tagCompare < 0) {
+            $updateBadge = '<span class="notice-md3-pill notice-md3-pill-warning">发现新版本 ' . $tag . '</span>';
+        } elseif ($tagCompare === 0) {
+            $updateBadge = '<span class="notice-md3-pill notice-md3-pill-success">当前已是最新版本</span>';
         } else {
-            $update = '<div class="mdui-chip"><span class="mdui-chip-icon mdui-color-amber"><i class="mdui-icon material-icons">warning</i></span>
-                <span class="mdui-chip-title mdui-text-color-cyan">您当前正在使用测试版</span></div>';
+            $updateBadge = '<span class="notice-md3-pill notice-md3-pill-info">当前版本高于最新发布版</span>';
         }
 
         echo <<<EOF
-<div class="mdui-card">
-  <div class="mdui-card-media">
-    <img src="https://i.loli.net/2020/11/20/17Sg53qNMmPDJsv.jpg"/>
-    <div class="mdui-card-media-covered mdui-card-media-covered-transparent">
-      <div class="mdui-card-primary">
-        <div class="mdui-card-primary-title">Notice</div>
-        <div class="mdui-card-primary-subtitle">欢迎使用 Notice 插件</div>
+<div class="notice-md3-shell">
+  <section class="notice-md3-hero">
+    <div class="notice-md3-hero__backdrop"></div>
+    <div class="notice-md3-hero__badge">Notice</div>
+    <div class="notice-md3-hero__main">
+      <div class="notice-md3-hero__copy">
+        <p class="notice-md3-hero__eyebrow">Typecho 评论通知中心</p>
+        <h2 class="notice-md3-hero__title">Notice <span>v{$version}</span></h2>
+        <div class="notice-md3-hero__pills">
+          {$updateBadge}
+          {$backupBadge}
+        </div>
+      </div>
+      <div class="notice-md3-hero__aside">
+        <div class="notice-md3-metric">
+          <strong>5</strong>
+          <span>通知渠道</span>
+        </div>
+        <div class="notice-md3-metric">
+          <strong>3</strong>
+          <span>邮件模板</span>
+        </div>
       </div>
     </div>
-  </div>
-  
-  <div class="mdui-card-content">
-  {$update}
-  {$backupExist}
-  </div>
-  <div class="mdui-card-actions">
-    <button class="mdui-btn mdui-ripple" mdui-tooltip="{content: '唯一指定发布源'}"><a href = "https://github.com/imzrme/Typecho-Plugin-Notice">Github</a></button>
-    <button class="mdui-btn mdui-ripple" mdui-tooltip="{content: '欢迎来踩博客～'}"><a href = "https://mzrme.com/">作者博客</a></button>
-    <button class="mdui-btn mdui-ripple showSettings" mdui-tooltip="{content: '展开所有设置后，使用 ctrl + F 可以快速搜索某一设置项'}">展开所有设置</button>
-    <button class="mdui-btn mdui-ripple hideSettings">折叠所有设置</button>
-    <br>
-    <button class = "mdui-btn mdui-ripple mdui-color-light-green recover_backup" mdui-tooltip="{content: '从数据库插件配置备份恢复数据'}">从备份恢复配置</button>
-    <button class = "mdui-btn mdui-ripple mdui-color-yellow-100 backup" mdui-tooltip="{content: '1. 仅仅是备份Notice的设置</br>2. 禁用插件的时候，设置数据会清空但是备份设置不会被删除。</br>3. 所以当你重启启用插件时，可以恢复备份设置。</br>4. 备份设置同样是备份到数据库中。</br>5. 如果已有备份设置，再次备份会覆盖之前备份<br/>6. 插件开发过程中会尽量保证配置项不发生较大改变～'}">备份插件配置</button>
-    <button class = "mdui-btn mdui-ripple mdui-color-red-200 del_backup" mdui-tooltip="{content:'删除handsome备份数据'}">删除现有Notice插件配置备份</button>
-  </div>
-  
-</div>
+    <div class="notice-md3-hero__actions">
+      <a class="notice-md3-action notice-md3-action-primary" href="https://github.com/imzrme/Typecho-Plugin-Notice" target="_blank" rel="noopener">GitHub</a>
+      <a class="notice-md3-action notice-md3-action-secondary" href="https://mzrme.com/" target="_blank" rel="noopener">作者博客</a>
+      <button type="button" class="notice-md3-action notice-md3-action-tonal showSettings" onclick="Array.prototype.forEach.call(document.querySelectorAll('.notice-md3-section, .notice-md3-field'), function(el){ el.classList.add('mdui-panel-item-open'); }); return false;">展开全部</button>
+      <button type="button" class="notice-md3-action notice-md3-action-tonal hideSettings" onclick="Array.prototype.forEach.call(document.querySelectorAll('.notice-md3-section, .notice-md3-field'), function(el){ el.classList.remove('mdui-panel-item-open'); }); return false;">收起全部</button>
+      <button type="button" class="notice-md3-action notice-md3-action-soft recover_backup">恢复备份</button>
+      <button type="button" class="notice-md3-action notice-md3-action-soft backup">备份配置</button>
+      <button type="button" class="notice-md3-action notice-md3-action-danger del_backup">删除备份</button>
+    </div>
+  </section>
 EOF;
-
     }
 
     public static function script(Typecho\Widget\Helper\Form $form)
     {
-
-        $blog_url = Utils\Helper::options()->siteUrl;
-        $action_url = $blog_url . 'action/' . Notice\Plugin::$action_setting;
+        $blogUrl = Utils\Helper::options()->siteUrl;
+        $actionUrl = $blogUrl . 'action/' . Notice\Plugin::$action_setting;
+        $strings = array(
+            'confirmBackup' => '确认备份当前 Notice 配置吗？',
+            'titleBackup' => '备份配置',
+            'confirmDelete' => '确认删除现有备份吗？',
+            'titleDelete' => '删除备份',
+            'confirmRecover' => '确认恢复备份并覆盖当前配置吗？',
+            'titleRecover' => '恢复备份',
+            'backupSuccess' => '备份完成，正在刷新页面...',
+            'backupFail' => '备份失败：',
+            'deleteSuccess' => '备份已删除，正在刷新页面...',
+            'deleteEmpty' => '当前没有可删除的备份。',
+            'recoverSuccess' => '备份已恢复，正在刷新页面...',
+            'recoverFail' => '恢复失败：',
+            'confirmText' => '确认',
+            'cancelText' => '取消'
+        );
+        $stringsJson = json_encode($strings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         echo <<<EOF
+</div>
 <script>
-    $(function(){
-         $('.showSettings').bind('click',function() {
-           $('.mdui-panel-item').addClass('mdui-panel-item-open');
-         });
-         $('.hideSettings').bind('click',function() {
-            $('.mdui-panel-item').removeClass('mdui-panel-item-open');
-         });
-     });
-    $('.backup').click(function() {
-         mdui.confirm("确认要备份数据吗", "备份数据", function() {
-           $.ajax({
-            url: '$action_url',
-            data: {"do":"backup"},
-            success: function(data) {
-                if (data !== "-1"){
-                    mdui.snackbar({
-                    message: '备份成功，操作码:' + data +',正在刷新页面……',
-                    position: 'bottom'
-                });
-                    setTimeout(function (){
-                    location.reload();
-                },1000);
-                }else {
-                    mdui.snackbar({
-                    message: '备份失败,错误码' + data,
-                    position: 'bottom'
-                });
-                }
-            }
-        })
-         },null , {"confirmText":"确认","cancelText":"取消"})
+    $(function () {
+        var scope = $('.notice-md3-shell');
+        var strings = {$stringsJson};
 
-     });
-     
-     
-     $('.del_backup').click(function() {
-         
-         mdui.confirm("确认要删除备份数据吗", "删除备份", function() {
-            $.ajax({
-            url: '$action_url',
-            data: {"do":"del_backup"},
-            success: function(data) {
-                if (data !== "-1"){
-                    mdui.snackbar({
-                    message: '删除备份成功，操作码:' + data +',正在刷新页面……',
-                    position: 'bottom'
-                });
-                    setTimeout(function (){
-                    location.reload();
-                },1000);
-                }else {
-                    var message = "没有备份，你删什么删，别问我为什么这么冲，因为总有问我为啥删除失败，对不起。";
-                    mdui.snackbar({
-                    message: message,
-                    position: 'bottom'
-                });
-                }
-            }
-        })
-},null , {"confirmText":"确认","cancelText":"取消"});
-         
-});
-     
-     $('.recover_backup').click(function() {
-         
-         
-        mdui.confirm("确认要恢复备份数据吗", "恢复备份", function() {
-    $.ajax({
-        url: '$action_url',
-        data: {"do":"recover_backup"},
-        success: function(data) {
-            if (data !== "-1"){
-                mdui.snackbar({
-                message: '恢复备份成功，操作码:' + data +',正在刷新页面……',
+        function showMessage(message) {
+            mdui.snackbar({
+                message: message,
                 position: 'bottom'
             });
-                setTimeout(function (){
-                    location.reload();
-                },1000);
-            }else {
-                mdui.snackbar({
-                    message: '恢复备份失败,错误码' + data,
-                    position: 'bottom'
-                });
-            }
         }
-    })
 
-},null , {"confirmText":"确认","cancelText":"取消"})
-     });
+        function reloadWithMessage(message) {
+            showMessage(message);
+            setTimeout(function () {
+                location.reload();
+            }, 1000);
+        }
+
+        function setPanelState(open) {
+            var items = $('.notice-md3-section, .notice-md3-field');
+            items.toggleClass('mdui-panel-item-open', open);
+        }
+
+        $(document).on('click', '.showSettings', function (event) {
+            event.preventDefault();
+            setPanelState(true);
+        });
+
+        $(document).on('click', '.hideSettings', function (event) {
+            event.preventDefault();
+            setPanelState(false);
+        });
+
+        $(document).on('click', '.backup', function (event) {
+            event.preventDefault();
+            mdui.confirm(strings.confirmBackup, strings.titleBackup, function () {
+                $.ajax({
+                    url: '$actionUrl',
+                    data: {"do": "backup"},
+                    success: function (data) {
+                        if (data !== '-1') {
+                            reloadWithMessage(strings.backupSuccess);
+                        } else {
+                            showMessage(strings.backupFail + data);
+                        }
+                    }
+                });
+            }, null, {"confirmText": strings.confirmText, "cancelText": strings.cancelText});
+        });
+
+        $(document).on('click', '.del_backup', function (event) {
+            event.preventDefault();
+            mdui.confirm(strings.confirmDelete, strings.titleDelete, function () {
+                $.ajax({
+                    url: '$actionUrl',
+                    data: {"do": "del_backup"},
+                    success: function (data) {
+                        if (data !== '-1') {
+                            reloadWithMessage(strings.deleteSuccess);
+                        } else {
+                            showMessage(strings.deleteEmpty);
+                        }
+                    }
+                });
+            }, null, {"confirmText": strings.confirmText, "cancelText": strings.cancelText});
+        });
+
+        $(document).on('click', '.recover_backup', function (event) {
+            event.preventDefault();
+            mdui.confirm(strings.confirmRecover, strings.titleRecover, function () {
+                $.ajax({
+                    url: '$actionUrl',
+                    data: {"do": "recover_backup"},
+                    success: function (data) {
+                        if (data !== '-1') {
+                            reloadWithMessage(strings.recoverSuccess);
+                        } else {
+                            showMessage(strings.recoverFail + data);
+                        }
+                    }
+                });
+            }, null, {"confirmText": strings.confirmText, "cancelText": strings.cancelText});
+        });
+    });
 </script>
 EOF;
-
     }
 
     public static function Setting(Typecho\Widget\Helper\Form $form)
     {
-        $form->addItem(new MDTitle('插件配置', '推送服务开关、插件更新提示、数据库配置、日志配置', false));
+        $form->addItem(new MDTitle('插件设置', '通知通道开关、更新提醒、数据库与日志策略', false));
 
         $setting = new MDCheckbox('setting',
             array(
-                'serverchan' => '启用Server酱',
-                'qmsg' => '启用Qmsg酱',
-                'mail' => '启用邮件',
-                'msgraph' => '启用Microsoft Graph邮件',
-                'telegram' => '启用Telegram Bot',
-                'updatetip' => '启用更新提示',
+                'serverchan' => '启用 Server酱 Turbo',
+                'qmsg' => '启用 Qmsg',
+                'mail' => '启用 SMTP 邮件',
+                'msgraph' => '启用 Microsoft Graph 邮件',
+                'telegram' => '启用 Telegram Bot',
+                'updatetip' => '启用更新提醒',
             ),
-            array('updatetip'), '插件设置', _t('请选择您要启用的通知方式。<br/>' .
-                '当勾选"启用更新提示"时，在本插件更新后，您会在后台界面看到一条更新提示～'));
+            array('updatetip'),
+            '通知方式',
+            _t('选择你要启用的通知方式。启用更新提醒后，插件有新版本时后台会显示提示。')
+        );
         $form->addInput($setting->multiMode());
 
-        $delDB = new MDRadio('delDB',
+        $delDB = new MDRadio(
+            'delDB',
             array(
                 '1' => '是',
                 '0' => '否'
-            ), '1', _t('卸载插件时删除数据库'),
-            _t('勾选否则表示当您禁用此插件时，插件的历史记录仍将存留在数据库中。'));
+            ),
+            '1',
+            _t('卸载插件时删除数据库'),
+            _t('如果选“否”，插件的历史日志和记录会保留在数据库中。')
+        );
         $form->addInput($delDB);
 
-        $enable_log = new MDRadio('enableLog',
+        $enableLog = new MDRadio(
+            'enableLog',
             array(
-                '2' => "调试",
-                '1' => "生产",
+                '2' => '调试',
+                '1' => '生产',
                 '0' => '关闭'
-            ), '1', _t('日志级别'),
-            _t('调试方便检查参数配置情况，生产仅记录发信内容，关闭则不会在数据库中存储任何日志。'));
-        $form->addInput($enable_log);
+            ),
+            '1',
+            _t('日志级别'),
+            _t('调试会记录更完整的过程日志；生产只记录发送结果；关闭则不写入日志。')
+        );
+        $form->addInput($enableLog);
+
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
     }
 
     public static function Serverchan(Typecho\Widget\Helper\Form $form)
     {
-        $form->addItem(new MDTitle('Server酱Turbo配置', 'SCKEY、Server酱Turbo通知模版<span style="color:red"><a href="https://sc.ftqq.com/9.version">Server酱升级！</a>请重新配置本项</span>', false));
-        $scKey = new MDText('scKey', NULL, NULL, _t('Server酱SCKEY'),
-            _t('想要获取 SCKEY 则需要在 <a href="https://sct.ftqq.com/">Server酱Turbo版</a>登录并进行捐赠<br>
-                同时，注册后需要在 <a href="http://sct.ftqq.com/">Server酱Turbo版</a> 绑定你的微信号才能收到推送'));
+        $form->addItem(new MDTitle('Server酱 Turbo 配置', 'SCKEY 与通知模板', false));
+
+        $scKey = new MDText(
+            'scKey',
+            null,
+            null,
+            _t('Server酱 SCKEY'),
+            _t('前往 <a href="https://sct.ftqq.com/" target="_blank" rel="noopener">Server酱 Turbo</a> 获取 SCKEY，并绑定接收通知的微信。')
+        );
         $form->addInput($scKey);
 
-        $scMsg = new MDTextarea('scMsg', NULL,
-            "评论人：**{author}**\n\n 评论内容:\n> {text}\n\n链接：{permalink}",
-            _t("Server酱Turbo通知模版"), _t("通过server酱Turbo通知您的内容模版，可使用变量列表见插件说明")
+        $scMsg = new MDTextarea(
+            'scMsg',
+            null,
+            "评论人：**{author}**\n\n评论内容：\n> {text}\n\n链接：{permalink}",
+            _t('Server酱通知模板'),
+            _t('支持模板变量，变量列表见插件说明。')
         );
         $form->addInput($scMsg);
+
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
     }
 
     public static function checkServerchan(array $settings)
     {
-        if (in_array('serverchan', $settings['setting'])) {
+        if (in_array('serverchan', $settings['setting'] ?? array(), true)) {
             if (empty($settings['scKey'])) {
-                return _t('请填写SCKEY');
+                return _t('请填写 Server酱 SCKEY');
             }
             if (empty($settings['scMsg'])) {
-                return _t('请填写Server酱通知模版');
+                return _t('请填写 Server酱通知模板');
             }
         }
         return '';
@@ -262,34 +296,47 @@ EOF;
 
     public static function Qmsgchan(Typecho\Widget\Helper\Form $form)
     {
-        $form->addItem(new MDTitle('Qmsg酱配置', 'QmsgKEY、QmsgQQ、Qmsg酱通知模版', false));
-        $QmsgKey = new MDText('QmsgKey', NULL, NULL, _t('QmsgKey'),
-            _t('请进入 <a href="https://qmsg.zendee.cn/api">Qmsg酱文档</a> 获取您的 KEY: https://qmsg.zendee.cn:443/send/{QmsgKey}<br>
-                请注意此处只需填写key即可，不要填整个链接！！'));
-        $form->addInput($QmsgKey);
+        $form->addItem(new MDTitle('Qmsg 配置', 'Qmsg Key、QQ 号与通知模板', false));
 
-        $QmsgQQ = new MDText('QmsgQQ', NULL, NULL, _t('QmsgQQ'),
-            _t('请进入 <a href="https://qmsg.zendee.cn/user">Qmsg酱</a> 选择机器人QQ号，使用您接收通知的QQ号添加其为好友，并将该QQ号添加到该页面下方QQ号列表中<br/>
-                如果您有多个应用，且在该网站上增加了许多QQ号，您可以在这里填写本站点推送的QQ号（用英文逗号分割，最后不需要加逗号），不填则向该网站列表中所有的QQ号发送消息'));
-        $form->addInput($QmsgQQ);
-
-        $QmsgMsg = new MDTextarea('QmsgMsg', NULL,
-            "评论人：{author}\n评论内容:\n{text}\n\n链接：{permalink}",
-            _t("Qmsg酱通知模版"), _t("通过Qmsg酱通知您的内容模版，可使用变量列表见插件说明")
+        $qmsgKey = new MDText(
+            'QmsgKey',
+            null,
+            null,
+            _t('Qmsg Key'),
+            _t('前往 <a href="https://qmsg.zendee.cn/api" target="_blank" rel="noopener">Qmsg 文档</a> 获取 Key，只需要填写 key，不要填完整链接。')
         );
-        $form->addInput($QmsgMsg);
+        $form->addInput($qmsgKey);
+
+        $qmsgQQ = new MDText(
+            'QmsgQQ',
+            null,
+            null,
+            _t('Qmsg QQ'),
+            _t('可选。多个 QQ 号请使用英文逗号分隔；留空则发给当前应用下全部已绑定 QQ。')
+        );
+        $form->addInput($qmsgQQ);
+
+        $qmsgMsg = new MDTextarea(
+            'QmsgMsg',
+            null,
+            "评论人：{author}\n评论内容：\n{text}\n\n链接：{permalink}",
+            _t('Qmsg 通知模板'),
+            _t('支持模板变量，变量列表见插件说明。')
+        );
+        $form->addInput($qmsgMsg);
+
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
     }
 
     public static function checkQmsgchan(array $settings)
     {
-        if (in_array('qmsg', $settings['setting'])) {
+        if (in_array('qmsg', $settings['setting'] ?? array(), true)) {
             if (empty($settings['QmsgKey'])) {
-                return _t('请填写QmsgKEY');
+                return _t('请填写 Qmsg Key');
             }
             if (empty($settings['QmsgMsg'])) {
-                return _t('请填写Qmsg酱通知模版');
+                return _t('请填写 Qmsg 通知模板');
             }
         }
         return '';
@@ -297,40 +344,42 @@ EOF;
 
     public static function SMTP(Typecho\Widget\Helper\Form $form)
     {
-        $form->addItem(new MDTitle('SMTP 配置', NULL, false));
-        $host = new MDText('host', NULL, '',
-            _t('邮件服务器地址'), _t('请填写 SMTP 服务器地址'));
+        $form->addItem(new MDTitle('SMTP 配置', '服务器、鉴权与发件人信息', false));
+
+        $host = new MDText('host', null, '', _t('SMTP 服务器地址'), _t('例如 smtp.example.com'));
         $form->addInput($host);
 
-        $port = new MDText('port', null, 465,
-            _t('端口号'), _t('端口号必须是数字，一般为465'));
-        $form->addInput($port->addRule('isInteger', _t('端口号必须是数字')));
+        $port = new MDText('port', null, 465, _t('端口'), _t('端口必须是数字，常见值如 465 或 587。'));
+        $form->addInput($port->addRule('isInteger', _t('端口必须是数字')));
 
-        $ssl = new MDSelect('secure',
-            array('tls' => 'tls', 'ssl' => 'ssl'), 'ssl',
-            _t('连接加密方式'));
-        $form->addInput($ssl);
+        $secure = new MDSelect(
+            'secure',
+            array('tls' => 'tls', 'ssl' => 'ssl'),
+            'ssl',
+            _t('连接加密方式')
+        );
+        $form->addInput($secure);
 
-        $auth = new MDRadio('auth',
-            array(1 => '是', 0 => '否'), 1,
-            _t('启用身份验证'), _t('勾选后必须填写用户名和密码两项'));
+        $auth = new MDRadio(
+            'auth',
+            array(1 => '是', 0 => '否'),
+            1,
+            _t('启用身份验证'),
+            _t('开启后必须填写用户名和密码。')
+        );
         $form->addInput($auth);
 
-        $user = new MDText('user', NULL,
-            '', _t('用户名'), _t('启用身份验证后有效，一般为 name@domain.com '));
+        $user = new MDText('user', null, '', _t('用户名'), _t('一般为完整邮箱地址，例如 name@domain.com。'));
         $form->addInput($user);
 
-        $pwd = new MDText('password', NULL,
-            '', _t('密码'), _t('启用身份验证后有效，有些服务商可能需要专用密码，详询服务商客服'));
-        $form->addInput($pwd);
+        $password = new MDText('password', null, '', _t('密码'), _t('某些服务商需要使用专用密码或应用密码。'));
+        $form->addInput($password);
 
-        $from = new MDText('from', NULL,
-            '', _t('发信人邮箱'));
+        $from = new MDText('from', null, '', _t('发件邮箱'));
         $form->addInput($from->addRule('email', _t('请输入正确的邮箱地址')));
 
-        $from_name = new MDText('from_name', NULL,
-            Utils\Helper::options()->title, _t('发信人名称'), _t('默认为站点标题'));
-        $form->addInput($from_name);
+        $fromName = new MDText('from_name', null, Utils\Helper::options()->title, _t('发件人名称'), _t('默认使用站点标题。'));
+        $form->addInput($fromName);
 
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
@@ -338,73 +387,58 @@ EOF;
 
     public static function EmailSettings(Typecho\Widget\Helper\Form $form)
     {
-        $form->addItem(new MDTitle('邮件通知内容配置', '适用于 SMTP 和 Microsoft Graph', false));
+        $form->addItem(new MDTitle('邮件通知内容', '适用于 SMTP 与 Microsoft Graph', false));
 
-        $titleForOwner = new MDText('titleForOwner', null,
-            "[{title}] 一文有新的评论", _t('博主接收邮件标题'));
-        $form->addInput($titleForOwner->addRule('required', _t('博主接收邮件标题 不能为空')));
+        $titleForOwner = new MDText('titleForOwner', null, '[{title}] 一文有新的评论', _t('站长接收邮件标题'));
+        $form->addInput($titleForOwner->addRule('required', _t('站长接收邮件标题不能为空')));
 
-        $titleForGuest = new MDText('titleForGuest', null,
-            "您在 [{title}] 的评论有了回复", _t('访客接收邮件标题'));
-        $form->addInput($titleForGuest->addRule('required', _t('访客接收邮件标题 不能为空')));
+        $titleForGuest = new MDText('titleForGuest', null, '您在 [{title}] 的评论有了回复', _t('访客接收邮件标题'));
+        $form->addInput($titleForGuest->addRule('required', _t('访客接收邮件标题不能为空')));
 
-        $titleForApproved = new MDText('titleForApproved', null,
-            "您在 [{title}] 的评论已被审核通过", _t('访客接收邮件标题'));
-        $form->addInput($titleForApproved->addRule('required', _t('访客接收邮件标题 不能为空')));
+        $titleForApproved = new MDText('titleForApproved', null, '您在 [{title}] 的评论已通过审核', _t('审核通过邮件标题'));
+        $form->addInput($titleForApproved->addRule('required', _t('审核通过邮件标题不能为空')));
 
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
     }
 
-
     public static function MicrosoftGraph(Typecho\Widget\Helper\Form $form)
     {
         $form->addItem(new MDTitle('Microsoft Graph API 配置', '使用 Microsoft Entra ID 应用发送邮件', false));
-        
-        // 租户 ID
-        $tenantId = new MDText('msgraphTenantId', NULL, NULL, 
-            _t('租户 ID (Tenant ID)'),
-            _t('Microsoft Entra ID 中的租户 ID'));
+
+        $tenantId = new MDText('msgraphTenantId', null, null, _t('租户 ID (Tenant ID)'), _t('Microsoft Entra ID 中的租户 ID。'));
         $form->addInput($tenantId);
-        
-        // 客户端 ID
-        $clientId = new MDText('msgraphClientId', NULL, NULL, 
-            _t('客户端 ID (Client ID)'),
-            _t('注册应用程序的客户端 ID'));
+
+        $clientId = new MDText('msgraphClientId', null, null, _t('客户端 ID (Client ID)'), _t('应用程序的客户端 ID。'));
         $form->addInput($clientId);
-        
-        // 客户端密钥
-        $clientSecret = new MDText('msgraphClientSecret', NULL, NULL, 
-            _t('客户端密钥 (Client Secret)'),
-            _t('应用程序的客户端密钥（请妥善保管）'));
+
+        $clientSecret = new MDText('msgraphClientSecret', null, null, _t('客户端密钥 (Client Secret)'), _t('请妥善保管该密钥。'));
         $form->addInput($clientSecret);
-        
-        // 发件人邮箱
-        $senderEmail = new MDText('msgraphSenderEmail', NULL, NULL, 
-            _t('发件人邮箱'),
-            _t('用于发送邮件的用户邮箱地址，该用户需要是租户的正式成员并拥有有效邮箱'));
+
+        $senderEmail = new MDText(
+            'msgraphSenderEmail',
+            null,
+            null,
+            _t('发件邮箱'),
+            _t('用于发送邮件的用户邮箱，必须是租户中的有效成员邮箱。')
+        );
         $form->addInput($senderEmail->addRule('email', _t('请输入正确的邮箱地址')));
-        
-        // 发件人名称
-        $senderName = new MDText('msgraphSenderName', NULL, 
-            Utils\Helper::options()->title, 
-            _t('发件人名称'), 
-            _t('默认为站点标题'));
+
+        $senderName = new MDText('msgraphSenderName', null, Utils\Helper::options()->title, _t('发件人名称'), _t('默认使用站点标题。'));
         $form->addInput($senderName);
-        
+
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
     }
 
     public static function Telegram(Typecho\Widget\Helper\Form $form)
     {
-        $form->addItem(new MDTitle('Telegram Bot 配置', 'Telegram Bot Token、Chat ID', false));
-        $tgBotToken = new MDText('tgBotToken', NULL, NULL, _t('Telegram Bot Token'),
-            _t('请填写 Telegram Bot Token (通过 @BotFather 获取)'));
+        $form->addItem(new MDTitle('Telegram Bot 配置', 'Bot Token 与 Chat ID', false));
+
+        $tgBotToken = new MDText('tgBotToken', null, null, _t('Telegram Bot Token'), _t('通过 @BotFather 获取 Bot Token。'));
         $form->addInput($tgBotToken);
 
-        $tgChatId = new MDText('tgChatId', NULL, NULL, _t('Telegram Chat ID'),
-            _t('请填写接收通知的 User ID 或 Channel ID'));
+        $tgChatId = new MDText('tgChatId', null, null, _t('Telegram Chat ID'), _t('填写接收通知的用户 ID 或频道 ID。'));
         $form->addInput($tgChatId);
 
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
@@ -413,7 +447,7 @@ EOF;
 
     public static function checkTelegram(array $settings)
     {
-        if (in_array('telegram', $settings['setting'])) {
+        if (in_array('telegram', $settings['setting'] ?? array(), true)) {
             if (empty($settings['tgBotToken'])) {
                 return _t('请填写 Telegram Bot Token');
             }
@@ -426,7 +460,7 @@ EOF;
 
     public static function checkMicrosoftGraph(array $settings)
     {
-        if (in_array('msgraph', $settings['setting'])) {
+        if (in_array('msgraph', $settings['setting'] ?? array(), true)) {
             if (empty($settings['msgraphTenantId'])) {
                 return _t('请填写 Microsoft Graph 租户 ID');
             }
@@ -437,7 +471,7 @@ EOF;
                 return _t('请填写 Microsoft Graph 客户端密钥');
             }
             if (empty($settings['msgraphSenderEmail'])) {
-                return _t('请填写 Microsoft Graph 发件人邮箱');
+                return _t('请填写 Microsoft Graph 发件邮箱');
             }
         }
         return '';
@@ -445,23 +479,23 @@ EOF;
 
     public static function checkSMTP(array $settings)
     {
-        if (in_array('mail', $settings['setting'])) {
+        if (in_array('mail', $settings['setting'] ?? array(), true)) {
             if (empty($settings['host'])) {
-                return _t('请填写SMTP服务器地址');
+                return _t('请填写 SMTP 服务器地址');
             }
             if (empty($settings['port'])) {
-                return _t('请填写端口号');
+                return _t('请填写 SMTP 端口');
             }
-            if ($settings['auth'] == 1) {
+            if (($settings['auth'] ?? 1) == 1) {
                 if (empty($settings['user'])) {
-                    return _t('请填写SMTP用户名');
+                    return _t('请填写 SMTP 用户名');
                 }
                 if (empty($settings['password'])) {
-                    return _t('请填写SMTP密码');
+                    return _t('请填写 SMTP 密码');
                 }
             }
             if (empty($settings['from'])) {
-                return _t('请填写发信人邮箱');
+                return _t('请填写发件邮箱');
             }
         }
         return '';
@@ -470,36 +504,43 @@ EOF;
     public static function check(array $settings)
     {
         $s = self::checkServerchan($settings);
-        if ($s != '')
+        if ($s !== '') {
             return $s;
+        }
 
         $s = self::checkQmsgchan($settings);
-        if ($s != '')
+        if ($s !== '') {
             return $s;
+        }
+
         $s = self::checkSMTP($settings);
-        if ($s != '')
+        if ($s !== '') {
             return $s;
+        }
 
         $s = self::checkMicrosoftGraph($settings);
-        if ($s != '')
+        if ($s !== '') {
             return $s;
-        
+        }
+
         $s = self::checkTelegram($settings);
-        if ($s != '')
+        if ($s !== '') {
             return $s;
-        
+        }
+
         $s = self::checkEmailSettings($settings);
-        if ($s != '')
+        if ($s !== '') {
             return $s;
-            
+        }
+
         return '';
     }
 
     public static function checkEmailSettings(array $settings)
     {
-        if (in_array('mail', $settings['setting']) || in_array('msgraph', $settings['setting'])) {
+        if (in_array('mail', $settings['setting'] ?? array(), true) || in_array('msgraph', $settings['setting'] ?? array(), true)) {
             if (empty($settings['titleForOwner'])) {
-                return _t('请填写博主接收邮件标题');
+                return _t('请填写站长接收邮件标题');
             }
             if (empty($settings['titleForGuest'])) {
                 return _t('请填写访客接收邮件标题');

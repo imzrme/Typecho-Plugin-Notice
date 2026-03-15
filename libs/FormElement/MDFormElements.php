@@ -1,17 +1,12 @@
 <?php
 namespace TypechoPlugin\Notice\libs\FormElement;
 
-if (!defined('__TYPECHO_ROOT_DIR__')) exit;
+if (!defined('__TYPECHO_ROOT_DIR__')) {
+    exit;
+}
 
 use Typecho;
 
-/**
- * FormElements.php
- * Author     : hewro
- * Date       : 2017/10/08
- * Version    :
- * Description: 后台外观设置中的表单中的一些基本元素
- */
 class MDCustomLabel extends Typecho\Widget\Helper\Layout
 {
     public function __construct($html)
@@ -19,7 +14,6 @@ class MDCustomLabel extends Typecho\Widget\Helper\Layout
         $this->html($html);
         $this->start();
         $this->end();
-
     }
 
     public function start()
@@ -51,29 +45,23 @@ class MDEndSymbol extends Typecho\Widget\Helper\Layout
 
 class MDTitle extends Typecho\Widget\Helper\Layout
 {
-    /**
-     * 构造函数,设置标签名称
-     *
-     * @access public
-     * @param string $titleName
-     * @param string $subtitleName
-     * @param bool $isOpen
-     * @internal param string $tagName 标签名称
-     * @internal param array $attributes 属性列表
-     */
     public function __construct($titleName, $subtitleName = null, $isOpen = true)
     {
         if ($isOpen) {
-            $this->addItem(new MDCustomLabel('<div class="mdui-panel-item mdui-panel-item-open">'));
+            $this->addItem(new MDCustomLabel('<div class="mdui-panel-item notice-md3-section mdui-panel-item-open">'));
         } else {
-            $this->addItem(new MDCustomLabel('<div class="mdui-panel-item">'));
+            $this->addItem(new MDCustomLabel('<div class="mdui-panel-item notice-md3-section">'));
         }
 
+        $this->addItem(new MDCustomLabel(
+            '<div class="mdui-panel-item-header notice-md3-section__header" role="button" tabindex="0" onclick="this.parentNode.classList.toggle(\'mdui-panel-item-open\');">' .
+            $titleName .
+            '<small class="mdui-panel-item-sub-header notice-md3-section__subtitle">' .
+            $subtitleName .
+            '</small></div>'
+        ));
 
-        $this->addItem(new MDCustomLabel('<div class="mdui-panel-item-header">' . $titleName . '<small class="mdui-panel-item-sub-header">' . $subtitleName . '</small></div>'));
-
-        $this->addItem(new MDCustomLabel('<div class="mdui-panel-item-body">'));
-
+        $this->addItem(new MDCustomLabel('<div class="mdui-panel-item-body notice-md3-section__body">'));
     }
 
     public function start()
@@ -84,9 +72,3 @@ class MDTitle extends Typecho\Widget\Helper\Layout
     {
     }
 }
-
-
-
-
-
-

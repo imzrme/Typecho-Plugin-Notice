@@ -2,18 +2,12 @@
 
 namespace TypechoPlugin\Notice\libs\FormElement;
 
-if (!defined('__TYPECHO_ROOT_DIR__')) exit;
+if (!defined('__TYPECHO_ROOT_DIR__')) {
+    exit;
+}
 
 use Typecho;
 
-/**
- * 多行文字域帮手类
- *
- * @category typecho
- * @package Widget
- * @copyright Copyright (c) 2008 Typecho team (http://www.typecho.org)
- * @license GNU General Public License 2.0
- */
 class MDTextarea extends Typecho\Widget\Helper\Form\Element
 {
     public function start()
@@ -25,64 +19,44 @@ class MDTextarea extends Typecho\Widget\Helper\Form\Element
         echo '</ul></div></div></div>';
     }
 
-
-    public function __construct($name = NULL, array $options = NULL, $value = NULL, $label = NULL, $description = NULL, $isOpen = true)
+    public function __construct($name = null, array $options = null, $value = null, $label = null, $description = null, $isOpen = true)
     {
         if ($isOpen) {
-            $this->addItem(new MDCustomLabel('<div class="mdui-panel" mdui-panel=""><div class="mdui-panel-item mdui-panel-item-open"><div class="mdui-panel-item-header">' . $label . '</div><div class="mdui-panel-item-body"><ul style="padding-left: 0px; list-style: none!important" id="typecho-option-item-' . $name . '-' . self::$uniqueId . '">'));
-
+            $wrapper = '<div class="mdui-panel notice-md3-field-panels"><div class="mdui-panel-item notice-md3-field notice-md3-field--textarea mdui-panel-item-open"><div class="mdui-panel-item-header notice-md3-field__header" role="button" tabindex="0" onclick="this.parentNode.classList.toggle(\'mdui-panel-item-open\');">' . $label . '</div><div class="mdui-panel-item-body notice-md3-field__body"><ul class="notice-md3-option-list" style="padding-left: 0; list-style: none !important" id="typecho-option-item-' . $name . '-' . self::$uniqueId . '">';
         } else {
-            $this->addItem(new MDCustomLabel('<div class="mdui-panel" mdui-panel=""><div class="mdui-panel-item"><div class="mdui-panel-item-header">' . $label . '</div><div class="mdui-panel-item-body"><ul style="padding-left: 0px; list-style: none!important" id="typecho-option-item-' . $name . '-' . self::$uniqueId . '">'));
-
+            $wrapper = '<div class="mdui-panel notice-md3-field-panels"><div class="mdui-panel-item notice-md3-field notice-md3-field--textarea"><div class="mdui-panel-item-header notice-md3-field__header" role="button" tabindex="0" onclick="this.parentNode.classList.toggle(\'mdui-panel-item-open\');">' . $label . '</div><div class="mdui-panel-item-body notice-md3-field__body"><ul class="notice-md3-option-list" style="padding-left: 0; list-style: none !important" id="typecho-option-item-' . $name . '-' . self::$uniqueId . '">';
         }
-
+        $this->addItem(new MDCustomLabel($wrapper));
         $this->name = $name;
         self::$uniqueId++;
 
-        /** 运行自定义初始函数 */
         $this->init();
-
-        /** 初始化表单项 */
         $this->input = $this->input($name, $options);
 
-        /** 初始化表单值 */
-        if (NULL !== $value) {
+        if (null !== $value) {
             $this->value($value);
         }
 
-        /** 初始化表单描述 */
-        if (NULL !== $description) {
+        if (null !== $description) {
             $this->description($description);
         }
     }
 
-
-    /**
-     * 初始化当前输入项
-     *
-     * @access public
-     * @param string|null $name 表单元素名称
-     * @param array|null $options 选择项
-     * @return Typecho\Widget\Helper\Layout
-     */
     public function input(?string $name = null, ?array $options = null): ?Typecho\Widget\Helper\Layout
     {
-        $this->addItem(new MDCustomLabel('<div class="mdui-textfield">'));
-        $input = new Typecho\Widget\Helper\Layout('textarea', array('id' => $name . '-0-' . self::$uniqueId, 'name' => $name, 'class' => 'mdui-textfield-input'));
-        $this->addItem(new MDCustomLabel("</div>"));
+        $this->addItem(new MDCustomLabel('<div class="mdui-textfield notice-md3-input-wrap">'));
+        $input = new Typecho\Widget\Helper\Layout('textarea', array(
+            'id' => $name . '-0-' . self::$uniqueId,
+            'name' => $name,
+            'class' => 'mdui-textfield-input notice-md3-control'
+        ));
         $this->container($input->setClose(false));
+        $this->addItem(new MDCustomLabel('</div>'));
         $this->inputs[] = $input;
 
         return $input;
     }
 
-    /**
-     * 设置表单项默认值
-     *
-     * @access protected
-     * @param string $value 表单项默认值
-     * @return void
-     */
     protected function inputValue($value)
     {
         $this->input->html(htmlspecialchars($value));

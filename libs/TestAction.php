@@ -125,34 +125,34 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
         $form = new Typecho\Widget\Helper\Form(Typecho\Common::url('/action/' . Notice\Plugin::$action_test . '?do=' . $action[$type], $options->index),
             Typecho\Widget\Helper\Form::POST_METHOD);
 
-        $title = new Typecho\Widget\Helper\Form\Element\Text('title', NULL, '测试文章标题', _t('title'), _t('被评论文章标题'));
+        $title = new Typecho\Widget\Helper\Form\Element\Text('title', NULL, '测试文章标题', _t('文章标题'));
         $form->addInput($title->addRule('required', '必须填写文章标题'));
 
-        $author = new Typecho\Widget\Helper\Form\Element\Text('author', NULL, '测试评论者', _t('author'), _t('评论者名字'));
+        $author = new Typecho\Widget\Helper\Form\Element\Text('author', NULL, '测试评论者', _t('评论者'));
         $form->addInput($author->addRule('required', '必须填写评论者名字'));
 
-        $mail = new Typecho\Widget\Helper\Form\Element\Text('mail', NULL, NULL, _t('mail'), _t('评论者邮箱'));
+        $mail = new Typecho\Widget\Helper\Form\Element\Text('mail', NULL, NULL, _t('评论者邮箱'));
         $form->addInput($mail->addRule('required', '必须填写评论者邮箱')->addRule('email', _t('邮箱地址不正确')));
 
-        $ip = new Typecho\Widget\Helper\Form\Element\Text('ip', NULL, '1.1.1.1', _t('ip'), _t('评论者ip'));
+        $ip = new Typecho\Widget\Helper\Form\Element\Text('ip', NULL, '1.1.1.1', _t('评论者 IP'));
         $form->addInput($ip->addRule('required', '必须填写评论者ip'));
 
-        $text = new Typecho\Widget\Helper\Form\Element\Textarea('text', NULL, '测试评论内容_(:з」∠)_', _t('text'), _t('评论内容'));
+        $text = new Typecho\Widget\Helper\Form\Element\Textarea('text', NULL, '测试评论内容_(:з」∠)_', _t('评论内容'));
         $form->addInput($text->addRule('required', '必须填写评论内容'));
 
         if ($type != 'telegram') {
-            $author_p = new Typecho\Widget\Helper\Form\Element\Text('author_p', NULL, NULL, _t('author_p'), _t('被评论者名字'));
+            $author_p = new Typecho\Widget\Helper\Form\Element\Text('author_p', NULL, NULL, _t('被评论者'));
             $form->addInput($author_p);
 
             $text_p = new Typecho\Widget\Helper\Form\Element\Textarea('text_p', NULL, NULL, _t('被评论内容'));
             $form->addInput($text_p);
         }
 
-        $permalink = new Typecho\Widget\Helper\Form\Element\Text('permalink', NULL, Utils\Helper::options()->index, _t('permalink'), _t('评论链接'));
+        $permalink = new Typecho\Widget\Helper\Form\Element\Text('permalink', NULL, Utils\Helper::options()->index, _t('评论链接'));
         $form->addInput($permalink);
 
         $status = new Typecho\Widget\Helper\Form\Element\Select('status', array(
-            "通过"=>"通过", "待审"=>"待审", "垃圾"=>"垃圾"), "待审", 'status', _t('评论状态'));
+            "通过"=>"通过", "待审"=>"待审", "垃圾"=>"垃圾"), "待审", '评论状态');
         $form->addInput($status);
 
         if ($type == 'mail' || $type == 'msgraph') {
@@ -172,19 +172,14 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
                 'owner' => 'owner',
                 'guest' => 'guest',
                 'approved' => 'approved'
-            ), 'owner', 'template', '选择发信的模版');
+            ), 'owner', '邮件模板', '选择发信模板');
             $form->addInput($template);
         }
 
-        $time = new Typecho\Date();
-        $time = $time->timeStamp;
-        $time = new Typecho\Widget\Helper\Form\Element\Hidden('time', NULL, $time);
-        $form->addInput($time);
-
         $submit = new Typecho\Widget\Helper\Form\Element\Submit();
-        $submit->input->setAttribute('class', 'btn primary');
+        $submit->input->setAttribute('class', 'notice-md3-inline-submit');
         $form->addItem($submit);
-        $submit->value('测试');
+        $submit->value('发送测试');
 
 
         return $form;
@@ -193,7 +188,8 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
     private function getArray(): array
     {
         $form = $this->request->from('title', 'author', 'mail', 'ip', 'text', 'author_p', 'text_p', 'permalink', 'status', 'time');
-        $date = new Typecho\Date($form['time']);
+        $timestamp = isset($form['time']) && is_numeric($form['time']) ? (int)$form['time'] : time();
+        $date = new Typecho\Date($timestamp);
 
         return array(
             $this->_option->title,

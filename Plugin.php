@@ -51,6 +51,54 @@ class Plugin implements PluginInterface
     public static string $panel_test = 'Notice/page/test.php';
 
     /**
+     * 构建独立提示框，并用样式压平 Typecho 默认的黄色 notice 外壳
+     */
+    private static function buildStandaloneNoticeBox(string $id, string $title, string $message): string
+    {
+        $title = (string)$title;
+        $message = (string)$message;
+
+        return <<<HTML
+<style>
+    .message.notice,
+    .message.success,
+    .message.error {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+</style>
+<div id="{$id}" style="border-radius:2px;box-shadow:1px 1px 50px rgba(0,0,0,.3);background-color:#fff;width:auto;height:auto;z-index:2501554;position:fixed;left:50%;top:50%;transform:translate(-50%, -50%);">
+    <div style="text-align:center;height:42px;line-height:42px;border-bottom:1px solid #eee;font-size:14px;overflow:hidden;border-radius:2px 2px 0 0;font-weight:bold;position:relative;cursor:move;min-width:200px;box-sizing:border-box;background-color:#28B7FF;color:#fff;">
+        {$title}
+    </div>
+    <div style="padding:15px;font-size:14px;min-width:150px;position:relative;box-sizing:border-box;height:50px;">
+        {$message}
+    </div>
+    <div style="text-align:right;padding-bottom:15px;padding-right:10px;min-width:200px;box-sizing:border-box;">
+        <button onclick="window.noticePluginCloseBox && window.noticePluginCloseBox('{$id}')" style="height:28px;line-height:28px;margin:15px 5px 0;padding:0 15px;border-radius:2px;font-weight:400;cursor:pointer;text-decoration:none;outline:none;background-color:#28B7FF;border:0;color:#fff;">
+            关闭
+        </button>
+    </div>
+</div>
+<script>
+    (function () {
+        window.noticePluginCloseBox = window.noticePluginCloseBox || function (boxId) {
+            var target = document.getElementById(boxId);
+            if (target && target.parentNode) {
+                target.parentNode.removeChild(target);
+            }
+        };
+    })();
+</script>
+HTML;
+    }
+
+    /**
      * 激活插件方法,如果激活失败,直接抛出异常
      *
      * @access public
@@ -60,21 +108,11 @@ class Plugin implements PluginInterface
      */
     public static function activate(): string
     {
-        $res = '<div id="typecho-plugin-notice-active-box" style="border-radius:2px;box-shadow:1px 1px 50px rgba(0,0,0,.3);background-color: #fff;width: auto; height: auto; z-index: 2501554; position: fixed; margin-left: -125px; margin-top: -75px; left: 50%; top: 50%;">
-                    <div style="text-align:center;height:42px;line-height:42px;border-bottom:1px solid #eee;font-size:14px;overflow:hidden;border-radius:2px 2px 0 0;font-weight:bold;position:relative;cursor:move;min-width:200px;box-sizing:border-box;background-color:#28B7FF;color:#fff;">';
-        $res .= libs\DB::dbInstall();
-
-        $res .= '   </div>
-                    <div style="padding:15px;font-size:14px;min-width:150px;position:relative;box-sizing:border-box;height:50px;">
-                        欢迎使用Notice插件，希望能让您喜欢！
-                    </div>
-                    <div style="text-align:right;padding-bottom:15px;padding-right:10px;min-width:200px;box-sizing:border-box;">
-                        <button onclick="colseDIV()"style="height:28px;line-height:28px;margin:15px 5px 0;padding:0 15px;border-radius:2px;font-weight:400;cursor:pointer;text-decoration:none;outline:none;background-color:#28B7FF;border:0;color:#fff;">
-                            关闭
-                        </button>
-                    </div>
-                    <script>function colseDIV(){$("#typecho-plugin-notice-active-box").hide()}</script>
-                </div>';
+        $res = self::buildStandaloneNoticeBox(
+            'typecho-plugin-notice-active-box',
+            libs\DB::dbInstall(),
+            '欢迎使用Notice插件，希望能让您喜欢！'
+        );
 
         // 通知触发函数
         Typecho\Plugin::factory('Widget_Feedback')->finishComment = __CLASS__ . '::requestService';
@@ -126,20 +164,11 @@ class Plugin implements PluginInterface
         } else {
             $s = _t('您的设置为不删除数据库！插件卸载成功！');
         }
-        return '<div id="AS-SW" style="border-radius:2px;box-shadow:1px 1px 50px rgba(0,0,0,.3);background-color: #fff;width: auto; height: auto; z-index: 2501554; position: fixed; margin-left: -125px; margin-top: -75px; left: 50%; top: 50%;">
-                    <div style="text-align: center;height:42px;line-height:42px;border-bottom:1px solid #eee;font-size:14px;overflow:hidden;border-radius:2px 2px 0 0;font-weight:bold;position:relative;cursor:move;min-width:200px;box-sizing:border-box;background-color:#28B7FF;color:#fff;">
-                        ' . $s . '
-                    </div>
-                    <div style="padding:15px;font-size:14px;min-width:150px;position:relative;box-sizing:border-box;height: 50px;">
-                        感谢您使用Notice，期待与您的下一次相遇！
-                    </div>
-                    <div style="text-align:right;padding-bottom:15px;padding-right:10px;min-width:200px;box-sizing:border-box;">
-                        <button onclick="colseDIV()" style="height:28px;line-height:28px;margin:15px 5px 0;padding:0 15px;border-radius:2px;font-weight:400;cursor:pointer;text-decoration:none;outline:none;background-color:#28B7FF;border:0;color:#fff;">
-                            关闭
-                        </button>
-                    </div>
-                    <Script>function colseDIV(){$("#AS-SW").hide()}</Script>
-                </div>';
+        return self::buildStandaloneNoticeBox(
+            'AS-SW',
+            $s,
+            '感谢您使用Notice，期待与您的下一次相遇！'
+        );
     }
 
     /**
@@ -156,7 +185,7 @@ class Plugin implements PluginInterface
         // header
         libs\Config::header($form);
         // 配置开始
-        $form->addItem(new libs\FormElement\MDCustomLabel('<div class="mdui-panel" mdui-panel="">'));
+        $form->addItem(new libs\FormElement\MDCustomLabel('<div class="notice-md3-panel-zone"><div class="mdui-panel notice-md3-panels">'));
         {
             // 插件配置
             libs\Config::Setting($form);
@@ -180,9 +209,11 @@ class Plugin implements PluginInterface
             libs\Config::EmailSettings($form);
         }
         $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
+        $form->addItem(new Typecho\Widget\Helper\Layout('/div'));
         // 美化提交按钮
-        $submit = new Typecho\Widget\Helper\Form\Element\Submit(NULL, NULL, _t('保存设置'));
+        $submit = new Typecho\Widget\Helper\Form\Element\Submit();
         $submit->input->setAttribute('class', 'mdui-btn mdui-color-theme-accent mdui-ripple submit_only');
+        $submit->value(_t('保存设置'));
         $form->addItem($submit);
         // javascript
         libs\Config::script($form);
