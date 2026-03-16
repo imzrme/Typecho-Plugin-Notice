@@ -120,7 +120,6 @@ EOF;
 </div>
 <script>
     $(function () {
-        var scope = $('.notice-md3-shell');
         var strings = {$stringsJson};
 
         function showMessage(message) {

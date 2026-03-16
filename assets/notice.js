@@ -6,8 +6,6 @@ $(function () {
         return;
     }
 
-    root.find(".notice-md3-hero__desc").remove();
-
     $(".error.message").each(function () {
         $(this).closest(".notice-md3-field, .notice-md3-section").addClass("mdui-panel-item-open");
     });

@@ -23,7 +23,7 @@ class SettingAction extends Typecho\Widget implements Widget\ActionInterface
         $value = $setting['value'];
         if ($this->_db->fetchRow($this->_db->select()->from('table.options')->where('name = ?', $this->_pluginBackupName))) {
             $update = $this->_db->update('table.options')->rows(array('value' => $value))->where('name = ?', $this->_pluginBackupName);
-            $updateRows = $this->_db->query($update);
+            $this->_db->query($update);
             echo 1;
         } else {
             $insert = $this->_db->insert('table.options')->rows(array('name' => $this->_pluginBackupName, 'user' => '0', 'value' => $value));
@@ -39,7 +39,7 @@ class SettingAction extends Typecho\Widget implements Widget\ActionInterface
     {
         if ($this->_db->fetchRow($this->_db->select()->from('table.options')->where('name = ?', $this->_pluginBackupName))) {
             $delete = $this->_db->delete('table.options')->where('name = ?', $this->_pluginBackupName);
-            $deletedRows = $this->_db->query($delete);
+            $this->_db->query($delete);
             echo 1;
         } else {
             echo -1;
@@ -55,7 +55,7 @@ class SettingAction extends Typecho\Widget implements Widget\ActionInterface
             $setting = $this->_db->fetchRow($this->_db->select()->from('table.options')->where('name = ?', $this->_pluginBackupName));
             $value = $setting['value'];
             $update = $this->_db->update('table.options')->rows(array('value' => $value))->where('name = ?', $this->_pluginName);
-            $updateRows = $this->_db->query($update);
+            $this->_db->query($update);
             echo 1;
         } else {
             echo -1;

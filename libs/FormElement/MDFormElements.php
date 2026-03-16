@@ -25,24 +25,6 @@ class MDCustomLabel extends Typecho\Widget\Helper\Layout
     }
 }
 
-class MDEndSymbol extends Typecho\Widget\Helper\Layout
-{
-    public function __construct($num)
-    {
-        for ($i = 0; $i < $num; $i++) {
-            $this->addItem(new MDCustomLabel("</div>"));
-        }
-    }
-
-    public function start()
-    {
-    }
-
-    public function end()
-    {
-    }
-}
-
 class MDTitle extends Typecho\Widget\Helper\Layout
 {
     public function __construct($titleName, $subtitleName = null, $isOpen = true)

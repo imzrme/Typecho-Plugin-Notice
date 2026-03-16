@@ -96,7 +96,7 @@ class DB
         $db = Typecho\Db::get();
         $prefix = $db->getPrefix();
 
-        $id = $db->query(
+        $db->query(
             $db->insert($prefix . 'notice')->rows(array(
                 'coid' => $coid,
                 'type' => $type,

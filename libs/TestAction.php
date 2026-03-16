@@ -349,7 +349,6 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
         $fromName = !empty($senderName) ? $senderName : $this->_pluginOption->from_name;
         $mail->setFrom($this->_pluginOption->from, $fromName);
         
-        var_dump($this->request->get('to'));
         $mail->addAddress($this->request->get('to'), $this->request->get('toName'));
         $mail->Body = $msg;
 
