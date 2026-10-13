@@ -21,6 +21,9 @@ $title = $current == 'mail' ? 'Notice 插件邮件配置测试' :
             var baseOffset = window.innerWidth <= 640 ? 104 : 88;
 
             notices.forEach(function (notice, index) {
+                if (notice.closest('.typecho-option')) {
+                    return;
+                }
                 if (document.body && notice.parentNode !== document.body) {
                     document.body.appendChild(notice);
                 }

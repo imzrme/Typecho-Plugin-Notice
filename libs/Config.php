@@ -20,6 +20,7 @@ use TypechoPlugin\Notice\libs\FormElement\MDSelect;
 use TypechoPlugin\Notice\libs\FormElement\MDText;
 use TypechoPlugin\Notice\libs\FormElement\MDTextarea;
 use TypechoPlugin\Notice\libs\FormElement\MDTitle;
+use TypechoPlugin\Notice\libs\FormElement\MDCustomLabel;
 use Utils;
 use TypechoPlugin\Notice;
 use const TypechoPlugin\Notice\__TYPECHO_PLUGIN_NOTICE_VERSION__;
@@ -57,8 +58,8 @@ class Config
             $updateBadge = '<span class="notice-md3-pill notice-md3-pill-info">当前版本高于最新发布版</span>';
         }
 
-        echo <<<EOF
-<div class="notice-md3-shell">
+        $header = <<<EOF
+<div class="notice-md3-shell notice-md3-config">
   <section class="notice-md3-hero">
     <div class="notice-md3-hero__backdrop"></div>
     <div class="notice-md3-hero__badge">Notice</div>
@@ -85,14 +86,15 @@ class Config
     <div class="notice-md3-hero__actions">
       <a class="notice-md3-action notice-md3-action-primary" href="https://github.com/imzrme/Typecho-Plugin-Notice" target="_blank" rel="noopener">GitHub</a>
       <a class="notice-md3-action notice-md3-action-secondary" href="https://mzrme.com/" target="_blank" rel="noopener">作者博客</a>
-      <button type="button" class="notice-md3-action notice-md3-action-tonal showSettings" onclick="Array.prototype.forEach.call(document.querySelectorAll('.notice-md3-section, .notice-md3-field'), function(el){ el.classList.add('mdui-panel-item-open'); }); return false;">展开全部</button>
-      <button type="button" class="notice-md3-action notice-md3-action-tonal hideSettings" onclick="Array.prototype.forEach.call(document.querySelectorAll('.notice-md3-section, .notice-md3-field'), function(el){ el.classList.remove('mdui-panel-item-open'); }); return false;">收起全部</button>
+      <button type="button" class="notice-md3-action notice-md3-action-tonal showSettings">展开全部</button>
+      <button type="button" class="notice-md3-action notice-md3-action-tonal hideSettings">收起全部</button>
       <button type="button" class="notice-md3-action notice-md3-action-soft recover_backup">恢复备份</button>
       <button type="button" class="notice-md3-action notice-md3-action-soft backup">备份配置</button>
       <button type="button" class="notice-md3-action notice-md3-action-danger del_backup">删除备份</button>
     </div>
   </section>
 EOF;
+        $form->addItem(new MDCustomLabel($header));
     }
 
     public static function script(Typecho\Widget\Helper\Form $form)
@@ -116,10 +118,13 @@ EOF;
             'cancelText' => '取消'
         );
         $stringsJson = json_encode($strings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        echo <<<EOF
+        $script = <<<EOF
 </div>
 <script>
-    $(function () {
+    (function () {
+      function initializeBackupActions() {
+        var $ = window.jQuery;
+        if (!$) { return; }
         var strings = {$stringsJson};
 
         function showMessage(message) {
@@ -135,21 +140,6 @@ EOF;
                 location.reload();
             }, 1000);
         }
-
-        function setPanelState(open) {
-            var items = $('.notice-md3-section, .notice-md3-field');
-            items.toggleClass('mdui-panel-item-open', open);
-        }
-
-        $(document).on('click', '.showSettings', function (event) {
-            event.preventDefault();
-            setPanelState(true);
-        });
-
-        $(document).on('click', '.hideSettings', function (event) {
-            event.preventDefault();
-            setPanelState(false);
-        });
 
         $(document).on('click', '.backup', function (event) {
             event.preventDefault();
@@ -201,9 +191,16 @@ EOF;
                 });
             }, null, {"confirmText": strings.confirmText, "cancelText": strings.cancelText});
         });
-    });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeBackupActions);
+      } else {
+        initializeBackupActions();
+      }
+    })();
 </script>
 EOF;
+        $form->addItem(new MDCustomLabel($script));
     }
 
     public static function Setting(Typecho\Widget\Helper\Form $form)
@@ -263,7 +260,9 @@ EOF;
             null,
             null,
             _t('Server酱 SCKEY'),
-            _t('前往 <a href="https://sct.ftqq.com/" target="_blank" rel="noopener">Server酱 Turbo</a> 获取 SCKEY，并绑定接收通知的微信。')
+            _t('前往 <a href="https://sct.ftqq.com/" target="_blank" rel="noopener">Server酱 Turbo</a> 获取 SCKEY，并绑定接收通知的微信。'),
+            true,
+            'password'
         );
         $form->addInput($scKey);
 
@@ -302,7 +301,9 @@ EOF;
             null,
             null,
             _t('Qmsg Key'),
-            _t('前往 <a href="https://qmsg.zendee.cn/api" target="_blank" rel="noopener">Qmsg 文档</a> 获取 Key，只需要填写 key，不要填完整链接。')
+            _t('前往 <a href="https://qmsg.zendee.cn/api" target="_blank" rel="noopener">Qmsg 文档</a> 获取 Key，只需要填写 key，不要填完整链接。'),
+            true,
+            'password'
         );
         $form->addInput($qmsgKey);
 
@@ -371,7 +372,7 @@ EOF;
         $user = new MDText('user', null, '', _t('用户名'), _t('一般为完整邮箱地址，例如 name@domain.com。'));
         $form->addInput($user);
 
-        $password = new MDText('password', null, '', _t('密码'), _t('某些服务商需要使用专用密码或应用密码。'));
+        $password = new MDText('password', null, '', _t('密码'), _t('某些服务商需要使用专用密码或应用密码。'), true, 'password');
         $form->addInput($password);
 
         $from = new MDText('from', null, '', _t('发件邮箱'));
@@ -411,7 +412,7 @@ EOF;
         $clientId = new MDText('msgraphClientId', null, null, _t('客户端 ID (Client ID)'), _t('应用程序的客户端 ID。'));
         $form->addInput($clientId);
 
-        $clientSecret = new MDText('msgraphClientSecret', null, null, _t('客户端密钥 (Client Secret)'), _t('请妥善保管该密钥。'));
+        $clientSecret = new MDText('msgraphClientSecret', null, null, _t('客户端密钥 (Client Secret)'), _t('请妥善保管该密钥。'), true, 'password');
         $form->addInput($clientSecret);
 
         $senderEmail = new MDText(
@@ -434,7 +435,7 @@ EOF;
     {
         $form->addItem(new MDTitle('Telegram Bot 配置', 'Bot Token 与 Chat ID', false));
 
-        $tgBotToken = new MDText('tgBotToken', null, null, _t('Telegram Bot Token'), _t('通过 @BotFather 获取 Bot Token。'));
+        $tgBotToken = new MDText('tgBotToken', null, null, _t('Telegram Bot Token'), _t('通过 @BotFather 获取 Bot Token。'), true, 'password');
         $form->addInput($tgBotToken);
 
         $tgChatId = new MDText('tgChatId', null, null, _t('Telegram Chat ID'), _t('填写接收通知的用户 ID 或频道 ID。'));

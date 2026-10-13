@@ -36,11 +36,11 @@ class MDTitle extends Typecho\Widget\Helper\Layout
         }
 
         $this->addItem(new MDCustomLabel(
-            '<div class="mdui-panel-item-header notice-md3-section__header" role="button" tabindex="0" onclick="this.parentNode.classList.toggle(\'mdui-panel-item-open\');">' .
-            $titleName .
+            '<div class="mdui-panel-item-header notice-md3-section__header" role="button" tabindex="0" aria-expanded="' . ($isOpen ? 'true' : 'false') . '">' .
+            '<span class="notice-md3-section__copy"><span class="notice-md3-section__name">' . $titleName . '</span>' .
             '<small class="mdui-panel-item-sub-header notice-md3-section__subtitle">' .
             $subtitleName .
-            '</small></div>'
+            '</small></span><span class="notice-md3-fold" aria-hidden="true"></span></div>'
         ));
 
         $this->addItem(new MDCustomLabel('<div class="mdui-panel-item-body notice-md3-section__body">'));
