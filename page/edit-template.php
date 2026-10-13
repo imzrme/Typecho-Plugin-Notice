@@ -62,7 +62,7 @@ Typecho\Widget::widget('Notice_libs_TestAction')->to($files);
                 <div class="notice-md3-editor-layout" role="main">
                     <div class="notice-md3-utility-card notice-md3-editor-card">
                         <form method="post" name="theme" id="theme" class="notice-md3-editor-form"
-                              action="<?php $options->index('/action/' . TypechoPlugin\Notice\Plugin::$action_edit_template); ?>">
+                              action="<?php echo htmlspecialchars(Utils\Helper::security()->getIndex('/action/' . TypechoPlugin\Notice\Plugin::$action_edit_template), ENT_QUOTES, 'UTF-8'); ?>">
                             <div class="notice-md3-editor-toolbar">
                                 <div class="notice-md3-editor-heading">
                                     <span class="notice-md3-editor-caption">当前模板</span>
