@@ -8,6 +8,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
 require_once "libs/Config.php";
 require_once "libs/db.php";
 require_once "libs/Utils.php";
+require_once __DIR__ . '/libs/MailRecipients.php';
 require_once "libs/FormElement/MDFormElements.php";
 require_once "libs/phpmailer/PHPMailer.php";
 require_once "libs/phpmailer/Exception.php";
@@ -31,7 +32,7 @@ const __TYPECHO_PLUGIN_NOTICE_VERSION__ = '2.0.0';
  * @author <strong style="color:#28B7FF;font-family: 楷体;">MZRME</strong>
  * @version 2.0.0
  * @link https://github.com/imzrme
- * @since 1.2.0
+ * @since 1.3.0
  */
 class Plugin implements PluginInterface
 {
@@ -242,6 +243,11 @@ HTML;
         return libs\Config::check($settings);
     }
 
+    public static function configHandle(array $settings, bool $isInit)
+    {
+        libs\Settings::save($settings);
+    }
+
     /**
      * 评论通知回调
      *
@@ -253,29 +259,31 @@ HTML;
      */
     public static function requestService($comment)
     {
-        libs\DB::log($comment->coid, 'log', '评论异步请求开始');
+        $coid = (int)$comment->coid;
+        libs\DB::log($coid, 'log', '评论异步请求开始');
         $options = Utils\Helper::options()->plugin('Notice');
-        if (in_array('mail', $options->setting) && !empty($options->host)) {
-            libs\DB::log($comment->coid, "log", "调用发送邮件异步");
-            self::sendMail($comment->coid);
+        $channels = libs\Settings::normalizeChannels($options->setting);
+        if (in_array('mail', $channels, true) && !empty($options->host)) {
+            libs\DB::log($coid, "log", "调用发送邮件异步");
+            self::sendMail($coid);
         }
-        if (in_array('msgraph', $options->setting) && !empty($options->msgraphClientId)) {
-            libs\DB::log($comment->coid, "log", "调用Microsoft Graph发送邮件异步");
-            self::sendMSGraphMail($comment->coid);
+        if (in_array('msgraph', $channels, true) && !empty($options->msgraphClientId)) {
+            libs\DB::log($coid, "log", "调用Microsoft Graph发送邮件异步");
+            self::sendMSGraphMail($coid);
         }
-        if (in_array('serverchan', $options->setting) && !empty($options->scKey)) {
-            libs\DB::log($comment->coid, "log", "调用Server酱异步");
-            self::sendSC($comment->coid);
+        if (in_array('serverchan', $channels, true) && !empty($options->scKey)) {
+            libs\DB::log($coid, "log", "调用Server酱异步");
+            self::sendSC($coid);
         }
-        if (in_array('qmsg', $options->setting) && !empty($options->QmsgKey)) {
-            libs\DB::log($comment->coid, "log", "调用Qmsg酱异步");
-            self::sendQmsg($comment->coid);
+        if (in_array('qmsg', $channels, true) && !empty($options->QmsgKey)) {
+            libs\DB::log($coid, "log", "调用Qmsg酱异步");
+            self::sendQmsg($coid);
         }
-        if (in_array('telegram', $options->setting) && !empty($options->tgBotToken)) {
-            libs\DB::log($comment->coid, "log", "调用Telegram Bot异步");
-            self::sendTelegram($comment->coid);
+        if (in_array('telegram', $channels, true) && !empty($options->tgBotToken)) {
+            libs\DB::log($coid, "log", "调用Telegram Bot异步");
+            self::sendTelegram($coid);
         }
-        libs\DB::log($comment->coid, 'log', '评论异步请求结束');
+        libs\DB::log($coid, 'log', '评论异步请求结束');
     }
 
     /**
@@ -313,7 +321,8 @@ HTML;
         $options = Utils\Helper::options();
         $pluginOptions = $options->plugin('Notice');
         $comment = Utils\Helper::widgetById('comments', $coid);
-        if (empty($pluginOptions->scKey)) {
+        if (!in_array('serverchan', libs\Settings::normalizeChannels($pluginOptions->setting), true)
+            || empty($pluginOptions->scKey)) {
             libs\DB::log($coid, 'log', 'Server酱：缺少sckey');
             return;
         }
@@ -366,7 +375,8 @@ HTML;
         $options = Utils\Helper::options();
         $pluginOptions = $options->plugin('Notice');
         $comment = Utils\Helper::widgetById('comments', $coid);
-        if (empty($pluginOptions->QmsgKey)) {
+        if (!in_array('qmsg', libs\Settings::normalizeChannels($pluginOptions->setting), true)
+            || empty($pluginOptions->QmsgKey)) {
             libs\DB::log($coid, 'log', 'Qmsg酱：评论缺少qmsgkey');
             return;
         }
@@ -429,7 +439,8 @@ HTML;
         $comment = Utils\Helper::widgetById('comments', $coid);
         
         // 验证配置
-        if (empty($pluginOptions->tgBotToken)) {
+        if (!in_array('telegram', libs\Settings::normalizeChannels($pluginOptions->setting), true)
+            || empty($pluginOptions->tgBotToken)) {
             libs\DB::log($coid, 'log', 'Telegram：缺少Bot Token');
             return;
         }
@@ -515,7 +526,7 @@ HTML;
      */
     public static function checkMailConfig($pluginOptions, $comment): ?PHPMailer
     {
-        if (!in_array('mail', $pluginOptions->setting)) {
+        if (!in_array('mail', libs\Settings::normalizeChannels($pluginOptions->setting), true)) {
             return null;
         }
 
@@ -523,7 +534,7 @@ HTML;
             return null;
         }
 
-        if (!$comment->have() || empty($comment->mail)) {
+        if (!$comment->have()) {
             return null;
         }
 
@@ -556,181 +567,57 @@ HTML;
      */
     public static function sendMail(int $coid)
     {
-        libs\DB::log($coid, 'log', '邮件：发送开始');
-        $pluginOptions = Utils\Helper::options()->plugin('Notice');
-        $comment = Utils\Helper::widgetById('comments', $coid);
-        assert($comment instanceof Widget\Base\Comments);
-
-        $mail = self::checkMailConfig($pluginOptions, $comment);
-        if ($mail == null) {
-            libs\DB::log($coid, 'log', '邮件：初始化异常，请检查插件配置');
-            return;
-        }
-
-        if (0 == $comment->parent) {
-            // 某文章或页面的新评论，向博主发信
-            libs\DB::log($coid, 'log', '邮件：新评论');
-            if ($comment->ownerId != $comment->authorId) {
-                libs\DB::log($coid, 'log', '邮件：新评论：向博主发信');
-                // 如果评论者不是文章作者自身，则发信
-                $post = Utils\Helper::widgetById('contents', $comment->cid);
-                assert($post instanceof Widget\Base\Contents);
-                $mail->addAddress($post->author->mail, $post->author->name);
-                // 构造邮件
-                $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate("owner"), $coid);
-                $mail->AltBody = "作者：" .
-                    $comment->author . "\r\n链接：" .
-                    $comment->permalink .
-                    "\r\n评论：\r\n" .
-                    $comment->text;
-                $mail->send();
-                libs\DB::log($coid, 'mail', $mail->Body);
-            } else {
-                libs\DB::log($coid, 'log', '邮件：新评论：文章作者评论，跳过');
-            }
-        } else {
-            libs\DB::log($coid, 'log', '邮件：子评论');
-            // 某评论有新的子评论，向父评论发信
-            if ('approved' == $comment->status) {
-                // 如果评论者之前有通过审核的评论，该评论会直接通过审核，则向父评论及文章作者发信
-                libs\DB::log($coid, 'log', '邮件：子评论：通过审核');
-                $parent = Utils\Helper::widgetById('comments', $comment->parent);
-                assert($parent instanceof Widget\Base\Comments);
-                if ($comment->authorId != $comment->ownerId) {
-                    libs\DB::log($coid, 'log', '邮件：子评论：通过审核：文章作者评论');
-                    if ($parent->authorId == $parent->ownerId) {
-                        libs\DB::log($coid, 'log', '邮件：子评论：通过审核：文章作者评论：父评论作者为文章作者跳过发信');
-                    } else {
-                        libs\DB::log($coid, 'log', '邮件：子评论：通过审核：文章作者评论：给父评论发信');
-                        $mail->addAddress($parent->mail, $parent->author);
-                        $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForGuest, $coid);
-                        $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('guest'), $coid);
-                    }
-                } else {
-                    libs\DB::log($coid, 'log', '邮件：子评论：通过审核：游客评论');
-                    if ($parent->authorId != $parent->ownerId) {
-                        // 父评论者不是文章作者：分别发送两封邮件
-                        libs\DB::log($coid, 'log', '邮件：子评论：通过审核：游客评论：父评论作者非文章作者');
-                        
-                        // 给父评论者发送guest模板
-                        $mail->addAddress($parent->mail, $parent->author);
-                        $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForGuest, $coid);
-                        $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('guest'), $coid);
-                        $mail->AltBody = "作者：" .
-                            $comment->author .
-                            "\r\n链接：" .
-                            $comment->permalink .
-                            "\r\n评论：\r\n" .
-                            $comment->text;
-                        $mail->send();
-                        libs\DB::log($coid, 'mail', 'To Parent: ' . $mail->Body);
-                        
-                        // 给文章作者发送owner模板
-                        $mail->clearAllRecipients();
-                        $post = Utils\Helper::widgetById('contents', $comment->cid);
-                        assert($post instanceof Widget\Base\Contents);
-                        $mail->addAddress($post->author->mail, $post->author->name);
-                        $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                        $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('owner'), $coid);
-                        $mail->AltBody = "作者：" .
-                            $comment->author .
-                            "\r\n链接：" .
-                            $comment->permalink .
-                            "\r\n评论：\r\n" .
-                            $comment->text;
-                        $mail->send();
-                        libs\DB::log($coid, 'mail', 'To Owner: ' . $mail->Body);
-                    } else {
-                        // 父评论者就是文章作者：只发owner模板
-                        libs\DB::log($coid, 'log', '邮件：子评论：通过审核：游客评论：父评论作者为文章作者');
-                        $post = Utils\Helper::widgetById('contents', $comment->cid);
-                        assert($post instanceof Widget\Base\Contents);
-                        $mail->addAddress($post->author->mail, $post->author->name);
-                        $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                        $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('owner'), $coid);
-                    }
-                }
-            } elseif ($comment->status == "waiting") {
-                // 评论标记为待审核，向博主发送评论通知
-                libs\DB::log($coid, 'log', '邮件：子评论：待审核');
-                $owner = Utils\Helper::widgetById("users", $comment->ownerId);
-                assert($owner instanceof Widget\Base\Users);
-                $mail->addAddress($owner->mail, $owner->name);
-                $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('owner'), $coid);
-            }
-            if (count($mail->getToAddresses()) > 0) {
-                $mail->AltBody = "作者：" .
-                    $comment->author .
-                    "\r\n链接：" .
-                    $comment->permalink .
-                    "\r\n评论：\r\n" .
-                    $comment->text;
-                $mail->send();
-                libs\DB::log($coid, 'mail', $mail->Body);
-            }
-        }
-        libs\DB::log($coid, 'log', '邮件：发送结束');
+        self::sendSmtpNotifications($coid, false);
     }
 
-    /**
-     * 异步发送评论通过审核邮件
-     *
-     * @access public
-     * @param int $coid 评论id
-     * @return void
-     * @throws Typecho\Plugin\Exception
-     * @throws Typecho\Widget\Exception
-     * @throws PHPMailerException
-     * @throws Typecho\Db\Exception
-     */
+    /** Send approval confirmations without suppressing the commenter's own confirmation. */
     public static function sendApprovedMail(int $coid)
     {
-        libs\DB::log($coid, 'log', '邮件：评论审核通过：开始');
+        self::sendSmtpNotifications($coid, true);
+    }
+
+    private static function sendSmtpNotifications(int $coid, bool $approval)
+    {
+        $label = $approval ? '邮件：评论审核通过' : '邮件';
+        libs\DB::log($coid, 'log', $label . '：发送开始');
         $pluginOptions = Utils\Helper::options()->plugin('Notice');
         $comment = Utils\Helper::widgetById('comments', $coid);
-        assert($comment instanceof Widget\Base\Comments);
-
-        $mail = self::checkMailConfig($pluginOptions, $comment);
-        if ($mail == null) {
-            libs\DB::log($coid, 'log', '邮件：评论审核通过：缺少关键参数，请检查插件配置');
+        if (!($comment instanceof Widget\Base\Comments) || !$comment->have()) {
+            libs\DB::log($coid, 'log', $label . '：评论不存在，跳过');
             return;
         }
-        // 向评论者发送审核通过邮件
-        libs\DB::log($coid, 'log', "邮件：评论审核通过：向评论者发信");
-        $mail->addAddress($comment->mail, $comment->author);
-        $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForApproved, $coid);
-        $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('approved'), $coid);
-        $mail->AltBody = "您的评论已通过审核。\n";
-        $mail->send();
-        libs\DB::log($coid, 'mail', $mail->Body);
+        $mail = self::checkMailConfig($pluginOptions, $comment);
+        if ($mail === null) {
+            libs\DB::log($coid, 'log', $label . '：渠道未启用或缺少关键参数');
+            return;
+        }
 
-        // 向父评论发送通知邮件
-        if ($comment->parent != 0) {
+        $plainText = "作者：" . $comment->author . "\r\n链接：" . $comment->permalink
+            . "\r\n评论：\r\n" . $comment->text;
+        $recipients = libs\MailRecipients::forComment($comment, $approval);
+        $subjects = [
+            'owner' => (string)$pluginOptions->titleForOwner,
+            'guest' => (string)$pluginOptions->titleForGuest,
+            'approved' => (string)$pluginOptions->titleForApproved
+        ];
+        foreach ($recipients as $recipient) {
+            // Each planned recipient gets one message with its own template.
             $mail->clearAllRecipients();
-
-            libs\DB::log($coid, 'log', "邮件：评论审核通过：有父评论");
-            $parent = Utils\Helper::widgetById('comments', $comment->parent);
-            assert($parent instanceof Widget\Base\Comments);
-            if($parent->ownerId != $parent->authorId){
-                libs\DB::log($coid, 'log', "邮件：评论审核通过：父评论作者非文章作者向父评论发信");
-                $mail->addAddress($parent->mail, $parent->author);
-                $mail->Subject = libs\ShortCut::replace($pluginOptions->titleForGuest, $coid);
-                $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate('guest'), $coid);
-                $mail->AltBody = "作者：" .
-                    $comment->author .
-                    "\r\n链接：" .
-                    $comment->permalink .
-                    "\r\n评论：\r\n" .
-                    $comment->text;
-                $mail->send();
+            if (!$mail->addAddress($recipient['mail'], $recipient['name'])) {
+                libs\DB::log($coid, 'mail', '邮件：收件人地址无效，跳过');
+                continue;
+            }
+            $template = $recipient['template'];
+            $mail->Subject = libs\ShortCut::replace($subjects[$template], $coid);
+            $mail->Body = libs\ShortCut::replace(libs\ShortCut::getTemplate($template), $coid);
+            $mail->AltBody = $template === 'approved' ? "您的评论已通过审核。\n" : $plainText;
+            if ($mail->send()) {
                 libs\DB::log($coid, 'mail', $mail->Body);
-            }else{
-                libs\DB::log($coid, 'log', "邮件：评论审核通过：父评论作者为文章作者跳过发信");
+            } else {
+                libs\DB::log($coid, 'mail', '邮件：发送失败：' . $mail->ErrorInfo);
             }
         }
-        libs\DB::log($coid, "log", "邮件：评论审核通过：结束");
+        libs\DB::log($coid, 'log', $label . '：发送结束');
     }
 
     /**
@@ -844,157 +731,52 @@ HTML;
      */
     public static function sendMSGraphMail(int $coid)
     {
-        libs\DB::log($coid, 'log', 'MSGraph邮件：发送开始');
-        $pluginOptions = Utils\Helper::options()->plugin('Notice');
-        $comment = Utils\Helper::widgetById('comments', $coid);
-        assert($comment instanceof Widget\Base\Comments);
-
-        if (!in_array('msgraph', $pluginOptions->setting) || empty($pluginOptions->msgraphTenantId)) {
-             libs\DB::log($coid, 'log', 'MSGraph邮件：初始化异常，请检查插件配置');
-             return;
-        }
-
-        $config = (object)[
-            'tenantId' => $pluginOptions->msgraphTenantId,
-            'clientId' => $pluginOptions->msgraphClientId,
-            'clientSecret' => $pluginOptions->msgraphClientSecret,
-            'senderEmail' => $pluginOptions->msgraphSenderEmail,
-            'senderName' => !empty($pluginOptions->msgraphSenderName) ? $pluginOptions->msgraphSenderName : Utils\Helper::options()->title
-        ];
-
-        if (0 == $comment->parent) {
-            // 某文章或页面的新评论，向博主发信
-            libs\DB::log($coid, 'log', 'MSGraph邮件：新评论');
-            if ($comment->ownerId != $comment->authorId) {
-                libs\DB::log($coid, 'log', 'MSGraph邮件：新评论：向博主发信');
-                $post = Utils\Helper::widgetById('contents', $comment->cid);
-                assert($post instanceof Widget\Base\Contents);
-                
-                $subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                $body = libs\ShortCut::replace(libs\ShortCut::getTemplate("owner"), $coid);
-                
-                $res = self::sendViaGraphApi($post->author->mail, $post->author->name, $subject, $body, $config);
-                libs\DB::log($coid, 'mail', $res === true ? "MSGraph发送成功" : "MSGraph发送失败: " . $res . "\nBody: " . $body);
-            } else {
-                libs\DB::log($coid, 'log', 'MSGraph邮件：新评论：文章作者评论，跳过');
-            }
-        } else {
-            libs\DB::log($coid, 'log', 'MSGraph邮件：子评论');
-            if ('approved' == $comment->status) {
-                libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核');
-                $parent = Utils\Helper::widgetById('comments', $comment->parent);
-                assert($parent instanceof Widget\Base\Comments);
-                
-                if ($comment->authorId != $comment->ownerId) {
-                    libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核：文章作者评论');
-                    if ($parent->authorId == $parent->ownerId) {
-                        libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核：文章作者评论：父评论作者为文章作者跳过发信');
-                    } else {
-                        libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核：文章作者评论：给父评论发信');
-                        $subject = libs\ShortCut::replace($pluginOptions->titleForGuest, $coid);
-                        $body = libs\ShortCut::replace(libs\ShortCut::getTemplate('guest'), $coid);
-                        
-                        $res = self::sendViaGraphApi($parent->mail, $parent->author, $subject, $body, $config);
-                        libs\DB::log($coid, 'mail', $res === true ? "MSGraph发送成功" : "MSGraph发送失败: " . $res);
-                    }
-                } else {
-                    libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核：游客评论');
-                    
-                    if ($parent->authorId != $parent->ownerId) {
-                        // 父评论者不是文章作者：给父评论者发guest模板，给文章作者发owner模板
-                        libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核：游客评论：父评论作者非文章作者');
-                        
-                        // 给父评论者发送guest模板邮件
-                        $subject = libs\ShortCut::replace($pluginOptions->titleForGuest, $coid);
-                        $body = libs\ShortCut::replace(libs\ShortCut::getTemplate('guest'), $coid);
-                        $res = self::sendViaGraphApi($parent->mail, $parent->author, $subject, $body, $config);
-                        libs\DB::log($coid, 'mail', "To Parent: " . ($res === true ? "Success" : $res));
-                        
-                        // 给文章作者发送owner模板邮件
-                        $post = Utils\Helper::widgetById('contents', $comment->cid);
-                        assert($post instanceof Widget\Base\Contents);
-                        $subjectOwner = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                        $bodyOwner = libs\ShortCut::replace(libs\ShortCut::getTemplate('owner'), $coid);
-                        $res2 = self::sendViaGraphApi($post->author->mail, $post->author->name, $subjectOwner, $bodyOwner, $config);
-                        libs\DB::log($coid, 'mail', "To Owner: " . ($res2 === true ? "Success" : $res2));
-                    } else {
-                        // 父评论者就是文章作者：只给他发送owner模板
-                        libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：通过审核：游客评论：父评论作者为文章作者');
-                        $post = Utils\Helper::widgetById('contents', $comment->cid);
-                        assert($post instanceof Widget\Base\Contents);
-                        $subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                        $body = libs\ShortCut::replace(libs\ShortCut::getTemplate('owner'), $coid);
-                        $res = self::sendViaGraphApi($post->author->mail, $post->author->name, $subject, $body, $config);
-                        libs\DB::log($coid, 'mail', "To Owner: " . ($res === true ? "Success" : $res));
-                    }
-                }
-            } elseif ($comment->status == "waiting") {
-                libs\DB::log($coid, 'log', 'MSGraph邮件：子评论：待审核');
-                $owner = Utils\Helper::widgetById("users", $comment->ownerId);
-                assert($owner instanceof Widget\Base\Users);
-                
-                $subject = libs\ShortCut::replace($pluginOptions->titleForOwner, $coid);
-                $body = libs\ShortCut::replace(libs\ShortCut::getTemplate('owner'), $coid);
-                
-                $res = self::sendViaGraphApi($owner->mail, $owner->name, $subject, $body, $config);
-                libs\DB::log($coid, 'mail', $res === true ? "MSGraph发送成功" : "MSGraph发送失败: " . $res);
-            }
-        }
-        libs\DB::log($coid, 'log', 'MSGraph邮件：发送结束');
+        self::sendGraphNotifications($coid, false);
     }
 
-    /**
-     * 异步发送评论通过审核邮件 (Microsoft Graph)
-     *
-     * @access public
-     * @param int $coid 评论id
-     * @return void
-     */
     public static function sendApprovedMSGraphMail(int $coid)
     {
-        libs\DB::log($coid, 'log', 'MSGraph邮件：评论审核通过：开始');
-        $pluginOptions = Utils\Helper::options()->plugin('Notice');
-        $comment = Utils\Helper::widgetById('comments', $coid);
-        assert($comment instanceof Widget\Base\Comments);
+        self::sendGraphNotifications($coid, true);
+    }
 
-        if (!in_array('msgraph', $pluginOptions->setting) || empty($pluginOptions->msgraphTenantId)) {
-            libs\DB::log($coid, 'log', 'MSGraph邮件：评论审核通过：缺少关键参数，请检查插件配置');
+    private static function sendGraphNotifications(int $coid, bool $approval)
+    {
+        $label = $approval ? 'MSGraph邮件：评论审核通过' : 'MSGraph邮件';
+        libs\DB::log($coid, 'log', $label . '：发送开始');
+        $pluginOptions = Utils\Helper::options()->plugin('Notice');
+        if (!in_array('msgraph', libs\Settings::normalizeChannels($pluginOptions->setting), true)
+            || empty($pluginOptions->msgraphTenantId) || empty($pluginOptions->msgraphClientId)
+            || empty($pluginOptions->msgraphClientSecret) || empty($pluginOptions->msgraphSenderEmail)) {
+            libs\DB::log($coid, 'log', $label . '：渠道未启用或缺少关键参数');
             return;
         }
-
+        $comment = Utils\Helper::widgetById('comments', $coid);
+        if (!($comment instanceof Widget\Base\Comments) || !$comment->have()) {
+            libs\DB::log($coid, 'log', $label . '：评论不存在，跳过');
+            return;
+        }
         $config = (object)[
             'tenantId' => $pluginOptions->msgraphTenantId,
             'clientId' => $pluginOptions->msgraphClientId,
             'clientSecret' => $pluginOptions->msgraphClientSecret,
             'senderEmail' => $pluginOptions->msgraphSenderEmail,
-            'senderName' => !empty($pluginOptions->msgraphSenderName) ? $pluginOptions->msgraphSenderName : Utils\Helper::options()->title
+            'senderName' => !empty($pluginOptions->msgraphSenderName)
+                ? $pluginOptions->msgraphSenderName : Utils\Helper::options()->title
         ];
-
-        // 向评论者发送审核通过邮件
-        libs\DB::log($coid, 'log', "MSGraph邮件：评论审核通过：向评论者发信");
-        $subject = libs\ShortCut::replace($pluginOptions->titleForApproved, $coid);
-        $body = libs\ShortCut::replace(libs\ShortCut::getTemplate('approved'), $coid);
-        
-        $res = self::sendViaGraphApi($comment->mail, $comment->author, $subject, $body, $config);
-        libs\DB::log($coid, 'mail', $res === true ? "MSGraph发送成功" : "MSGraph发送失败: " . $res);
-
-        // 向父评论发送通知邮件
-        if ($comment->parent != 0) {
-            libs\DB::log($coid, 'log', "MSGraph邮件：评论审核通过：有父评论");
-            $parent = Utils\Helper::widgetById('comments', $comment->parent);
-            assert($parent instanceof Widget\Base\Comments);
-            
-            if($parent->ownerId != $parent->authorId){
-                libs\DB::log($coid, 'log', "MSGraph邮件：评论审核通过：父评论作者非文章作者向父评论发信");
-                $subject = libs\ShortCut::replace($pluginOptions->titleForGuest, $coid);
-                $body = libs\ShortCut::replace(libs\ShortCut::getTemplate('guest'), $coid);
-                
-                $res = self::sendViaGraphApi($parent->mail, $parent->author, $subject, $body, $config);
-                libs\DB::log($coid, 'mail', $res === true ? "MSGraph发送成功" : "MSGraph发送失败: " . $res);
-            } else {
-                libs\DB::log($coid, 'log', "MSGraph邮件：评论审核通过：父评论作者为文章作者跳过发信");
-            }
+        $recipients = libs\MailRecipients::forComment($comment, $approval);
+        $subjects = [
+            'owner' => (string)$pluginOptions->titleForOwner,
+            'guest' => (string)$pluginOptions->titleForGuest,
+            'approved' => (string)$pluginOptions->titleForApproved
+        ];
+        foreach ($recipients as $recipient) {
+            $template = $recipient['template'];
+            $subject = libs\ShortCut::replace($subjects[$template], $coid);
+            $body = libs\ShortCut::replace(libs\ShortCut::getTemplate($template), $coid);
+            $result = self::sendViaGraphApi($recipient['mail'], $recipient['name'], $subject, $body, $config);
+            libs\DB::log($coid, 'mail', $result === true ? 'MSGraph发送成功' : 'MSGraph发送失败：' . $result);
         }
-        libs\DB::log($coid, "log", "MSGraph邮件：评论审核通过：结束");
+        libs\DB::log($coid, 'log', $label . '：发送结束');
     }
+
 }

@@ -12,6 +12,7 @@ require_once "FormElement/MDRadio.php";
 require_once "FormElement/MDSelect.php";
 require_once "FormElement/MDText.php";
 require_once "FormElement/MDTextarea.php";
+require_once __DIR__ . '/Settings.php';
 
 use Typecho;
 use TypechoPlugin\Notice\libs\FormElement\MDCheckbox;
@@ -48,14 +49,26 @@ class Config
             ? '<span class="notice-md3-pill notice-md3-pill-success">已检测到配置备份</span>'
             : '<span class="notice-md3-pill notice-md3-pill-danger">当前没有配置备份</span>';
 
-        $tag = Notice\libs\Version::getNewRelease();
-        $tagCompare = version_compare($version, $tag);
-        if ($tagCompare < 0) {
-            $updateBadge = '<span class="notice-md3-pill notice-md3-pill-warning">发现新版本 ' . $tag . '</span>';
-        } elseif ($tagCompare === 0) {
-            $updateBadge = '<span class="notice-md3-pill notice-md3-pill-success">当前已是最新版本</span>';
-        } else {
-            $updateBadge = '<span class="notice-md3-pill notice-md3-pill-info">当前版本高于最新发布版</span>';
+        $updateBadge = '';
+        try {
+            $channels = Settings::normalizeChannels(Utils\Helper::options()->plugin('Notice')->setting);
+        } catch (Typecho\Plugin\Exception $e) {
+            // During activation the plugin's initial settings have not been stored yet.
+            $channels = ['updatetip'];
+        }
+        if (in_array('updatetip', $channels, true)) {
+            $tag = Notice\libs\Version::getNewRelease();
+            if ($tag !== null) {
+                $tagCompare = version_compare(explode('+', $version, 2)[0], explode('+', $tag, 2)[0]);
+                if ($tagCompare < 0) {
+                    $updateBadge = '<span class="notice-md3-pill notice-md3-pill-warning">发现新版本 '
+                        . htmlspecialchars($tag, ENT_QUOTES, 'UTF-8') . '</span>';
+                } elseif ($tagCompare === 0) {
+                    $updateBadge = '<span class="notice-md3-pill notice-md3-pill-success">当前已是最新版本</span>';
+                } else {
+                    $updateBadge = '<span class="notice-md3-pill notice-md3-pill-info">当前版本高于最新发布版</span>';
+                }
+            }
         }
 
         $header = <<<EOF
@@ -99,8 +112,8 @@ EOF;
 
     public static function script(Typecho\Widget\Helper\Form $form)
     {
-        $blogUrl = Utils\Helper::options()->siteUrl;
-        $actionUrl = $blogUrl . 'action/' . Notice\Plugin::$action_setting;
+        $actionUrl = Utils\Helper::security()->getIndex('/action/' . Notice\Plugin::$action_setting);
+        $actionUrlJson = json_encode($actionUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         $strings = array(
             'confirmBackup' => '确认备份当前 Notice 配置吗？',
             'titleBackup' => '备份配置',
@@ -109,11 +122,9 @@ EOF;
             'confirmRecover' => '确认恢复备份并覆盖当前配置吗？',
             'titleRecover' => '恢复备份',
             'backupSuccess' => '备份完成，正在刷新页面...',
-            'backupFail' => '备份失败：',
             'deleteSuccess' => '备份已删除，正在刷新页面...',
-            'deleteEmpty' => '当前没有可删除的备份。',
             'recoverSuccess' => '备份已恢复，正在刷新页面...',
-            'recoverFail' => '恢复失败：',
+            'requestFail' => '操作失败，请刷新页面后重试；如果登录已失效，请重新登录。',
             'confirmText' => '确认',
             'cancelText' => '取消'
         );
@@ -141,51 +152,48 @@ EOF;
             }, 1000);
         }
 
-        $(document).on('click', '.backup', function (event) {
+        var actions = {
+            backup: {confirm: strings.confirmBackup, title: strings.titleBackup, success: strings.backupSuccess},
+            del_backup: {confirm: strings.confirmDelete, title: strings.titleDelete, success: strings.deleteSuccess},
+            recover_backup: {confirm: strings.confirmRecover, title: strings.titleRecover, success: strings.recoverSuccess}
+        };
+        var busy = false;
+        var buttons = $('.backup, .del_backup, .recover_backup');
+        $(document).on('click', '.backup, .del_backup, .recover_backup', function (event) {
             event.preventDefault();
-            mdui.confirm(strings.confirmBackup, strings.titleBackup, function () {
+            if (busy) { return; }
+            var operation = $(this).hasClass('backup') ? 'backup' :
+                ($(this).hasClass('del_backup') ? 'del_backup' : 'recover_backup');
+            var action = actions[operation];
+            mdui.confirm(action.confirm, action.title, function () {
+                if (busy) { return; }
+                busy = true;
+                buttons.prop('disabled', true);
+                var reloadScheduled = false;
                 $.ajax({
-                    url: '$actionUrl',
-                    data: {"do": "backup"},
+                    url: {$actionUrlJson},
+                    type: 'POST',
+                    dataType: 'json',
+                    timeout: 15000,
+                    data: {"do": operation},
                     success: function (data) {
-                        if (data !== '-1') {
-                            reloadWithMessage(strings.backupSuccess);
+                        if (data && data.success === true && data.operation === operation) {
+                            reloadScheduled = true;
+                            reloadWithMessage(action.success);
                         } else {
-                            showMessage(strings.backupFail + data);
+                            showMessage(data && data.success === false && typeof data.message === 'string'
+                                ? data.message : strings.requestFail);
                         }
-                    }
-                });
-            }, null, {"confirmText": strings.confirmText, "cancelText": strings.cancelText});
-        });
-
-        $(document).on('click', '.del_backup', function (event) {
-            event.preventDefault();
-            mdui.confirm(strings.confirmDelete, strings.titleDelete, function () {
-                $.ajax({
-                    url: '$actionUrl',
-                    data: {"do": "del_backup"},
-                    success: function (data) {
-                        if (data !== '-1') {
-                            reloadWithMessage(strings.deleteSuccess);
-                        } else {
-                            showMessage(strings.deleteEmpty);
-                        }
-                    }
-                });
-            }, null, {"confirmText": strings.confirmText, "cancelText": strings.cancelText});
-        });
-
-        $(document).on('click', '.recover_backup', function (event) {
-            event.preventDefault();
-            mdui.confirm(strings.confirmRecover, strings.titleRecover, function () {
-                $.ajax({
-                    url: '$actionUrl',
-                    data: {"do": "recover_backup"},
-                    success: function (data) {
-                        if (data !== '-1') {
-                            reloadWithMessage(strings.recoverSuccess);
-                        } else {
-                            showMessage(strings.recoverFail + data);
+                    },
+                    error: function (xhr) {
+                        var data = xhr.responseJSON;
+                        showMessage(data && data.success === false && typeof data.message === 'string'
+                            ? data.message : strings.requestFail);
+                    },
+                    complete: function () {
+                        if (!reloadScheduled) {
+                            busy = false;
+                            buttons.prop('disabled', false);
                         }
                     }
                 });
@@ -281,7 +289,7 @@ EOF;
 
     public static function checkServerchan(array $settings)
     {
-        if (in_array('serverchan', $settings['setting'] ?? array(), true)) {
+        if (in_array('serverchan', Settings::normalizeChannels($settings['setting'] ?? null), true)) {
             if (empty($settings['scKey'])) {
                 return _t('请填写 Server酱 SCKEY');
             }
@@ -331,7 +339,7 @@ EOF;
 
     public static function checkQmsgchan(array $settings)
     {
-        if (in_array('qmsg', $settings['setting'] ?? array(), true)) {
+        if (in_array('qmsg', Settings::normalizeChannels($settings['setting'] ?? null), true)) {
             if (empty($settings['QmsgKey'])) {
                 return _t('请填写 Qmsg Key');
             }
@@ -447,7 +455,7 @@ EOF;
 
     public static function checkTelegram(array $settings)
     {
-        if (in_array('telegram', $settings['setting'] ?? array(), true)) {
+        if (in_array('telegram', Settings::normalizeChannels($settings['setting'] ?? null), true)) {
             if (empty($settings['tgBotToken'])) {
                 return _t('请填写 Telegram Bot Token');
             }
@@ -460,7 +468,7 @@ EOF;
 
     public static function checkMicrosoftGraph(array $settings)
     {
-        if (in_array('msgraph', $settings['setting'] ?? array(), true)) {
+        if (in_array('msgraph', Settings::normalizeChannels($settings['setting'] ?? null), true)) {
             if (empty($settings['msgraphTenantId'])) {
                 return _t('请填写 Microsoft Graph 租户 ID');
             }
@@ -479,7 +487,7 @@ EOF;
 
     public static function checkSMTP(array $settings)
     {
-        if (in_array('mail', $settings['setting'] ?? array(), true)) {
+        if (in_array('mail', Settings::normalizeChannels($settings['setting'] ?? null), true)) {
             if (empty($settings['host'])) {
                 return _t('请填写 SMTP 服务器地址');
             }
@@ -538,7 +546,8 @@ EOF;
 
     public static function checkEmailSettings(array $settings)
     {
-        if (in_array('mail', $settings['setting'] ?? array(), true) || in_array('msgraph', $settings['setting'] ?? array(), true)) {
+        $channels = Settings::normalizeChannels($settings['setting'] ?? null);
+        if (in_array('mail', $channels, true) || in_array('msgraph', $channels, true)) {
             if (empty($settings['titleForOwner'])) {
                 return _t('请填写站长接收邮件标题');
             }

@@ -6,6 +6,9 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
 }
 
 use Typecho;
+use TypechoPlugin\Notice\libs\Settings;
+
+require_once __DIR__ . '/../Settings.php';
 
 class MDCheckbox extends Typecho\Widget\Helper\Form\Element
 {
@@ -32,9 +35,7 @@ class MDCheckbox extends Typecho\Widget\Helper\Form\Element
         $this->init();
         $this->input = $this->input($name, $options);
 
-        if (null !== $value) {
-            $this->value($value);
-        }
+        $this->value($value);
 
         if (null !== $description) {
             $this->description($description);
@@ -66,9 +67,14 @@ class MDCheckbox extends Typecho\Widget\Helper\Form\Element
         return current($this->_options);
     }
 
+    public function value($value): Typecho\Widget\Helper\Form\Element
+    {
+        return parent::value(Settings::normalizeChannels($value, array_keys($this->_options)));
+    }
+
     protected function inputValue($value)
     {
-        $values = is_array($value) ? $value : array($value);
+        $values = Settings::normalizeChannels($value, array_keys($this->_options));
 
         foreach ($this->_options as $option) {
             $option->removeAttribute('checked');

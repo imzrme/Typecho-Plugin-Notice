@@ -8,6 +8,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
 require_once "phpmailer/PHPMailer.php";
 require_once "phpmailer/SMTP.php";
 require_once "phpmailer/Exception.php";
+require_once __DIR__ . '/AtomicFile.php';
 
 use Typecho;
 use Utils;
@@ -43,10 +44,9 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
         $files = glob($this->_template_dir . '/*.{html,HTML}', GLOB_BRACE);
         $this->_currentFile = $this->request->get('file', 'owner.html');
 
-        if (preg_match("/^([_0-9a-z-\.\ ])+$/i", $this->_currentFile)
-            && file_exists($this->_template_dir . '/' . $this->_currentFile)) {
+        if ($this->templatePath($this->_currentFile) !== null) {
             foreach ($files as $file) {
-                if (file_exists($file)) {
+                if ($this->templatePath(basename($file)) !== null) {
                     $file = basename($file);
                     $this->push(array(
                         'file' => $file,
@@ -85,14 +85,14 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
     }
 
     /**
-     * 获取文件是否可读
+     * 获取模板是否支持原子保存
      *
      * @access public
-     * @return string
+     * @return bool
      */
-    public function currentIsWriteable(): string
+    public function currentIsWriteable(): bool
     {
-        return is_writeable($this->_template_dir . '/' . $this->_currentFile);
+        return is_writable($this->_template_dir) && is_writable($this->_template_dir . '/' . $this->_currentFile);
     }
 
     /**
@@ -114,7 +114,6 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
     public function testForm(string $type): Typecho\Widget\Helper\Form
     {
         /** 构建表单 */
-        $options = Typecho\Widget::widget('Widget_Options');
         $action = array(
             'mail' => 'send_test_mail',
             'msgraph' => 'send_test_msgraph',
@@ -122,7 +121,10 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
             'serverchan' => 'send_test_serverchan',
             'telegram' => 'send_test_telegram'
         );
-        $form = new Typecho\Widget\Helper\Form(Typecho\Common::url('/action/' . Notice\Plugin::$action_test . '?do=' . $action[$type], $options->index),
+        if (!isset($action[$type])) {
+            throw new Typecho\Widget\Exception('未知的测试类型', 400);
+        }
+        $form = new Typecho\Widget\Helper\Form(Utils\Helper::security()->getIndex('/action/' . Notice\Plugin::$action_test . '?do=' . $action[$type]),
             Typecho\Widget\Helper\Form::POST_METHOD);
 
         $title = new Typecho\Widget\Helper\Form\Element\Text('title', NULL, '测试文章标题', _t('文章标题'));
@@ -526,19 +528,38 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
      */
     public function editTheme($file)
     {
-        $path = Utils\Helper::options()->pluginDir() . '/Notice/template/' . $file;
-        if (file_exists($path) && is_writeable($path)) {
-            $handle = fopen($path, 'wb');
-            if ($handle && fwrite($handle, $this->request->content)) {
-                fclose($handle);
-                $this->widget('Widget_Notice')->set(_t("文件 %s 的更改已经保存", $file), 'success');
-            } else {
-                $this->widget('Widget_Notice')->set(_t("文件 %s 无法被写入", $file), 'error');
-            }
-            $this->response->goBack();
-        } else {
+        $path = is_string($file) ? $this->templatePath($file) : null;
+        if ($path === null) {
             throw new Typecho\Widget\Exception(_t('您编辑的模板文件不存在'));
         }
+        // Read the POST body explicitly; an empty template is a valid complete write.
+        if (!isset($_POST['content']) || !is_string($_POST['content'])) {
+            throw new Typecho\Widget\Exception(_t('模板内容无效'), 400);
+        }
+        try {
+            $saved = AtomicFile::write($path, $_POST['content']);
+        } catch (\Throwable $e) {
+            $saved = false;
+        }
+        if ($saved) {
+            $this->widget('Widget_Notice')->set(_t("文件 %s 的更改已经保存", $file), 'success');
+        } else {
+            $this->widget('Widget_Notice')->set(_t("文件 %s 无法被保存，原模板已保留", $file), 'error');
+        }
+        $this->response->goBack();
+    }
+
+    private function templatePath(string $file): ?string
+    {
+        if (!preg_match('/\A[_0-9a-z .-]+\.html\z/i', $file)) {
+            return null;
+        }
+        $path = $this->_template_dir . '/' . $file;
+        if (is_link($path) || !is_file($path)) {
+            return null;
+        }
+        $resolved = realpath($path);
+        return $resolved !== false && dirname($resolved) === realpath($this->_template_dir) ? $resolved : null;
     }
 
     /**
@@ -558,8 +579,18 @@ class TestAction extends Typecho\Widget implements Widget\ActionInterface
      */
     public function action()
     {
+        if (!$this->request->isPost()) {
+            $this->response->setStatus(405)->setHeader('Allow', 'POST')
+                ->throwJson(['success' => false, 'message' => '此操作只接受 POST 请求。']);
+            return;
+        }
         Typecho\Widget::widget('Widget_User')->pass('administrator');
-        $this->init();
+        Utils\Helper::security()->protect();
+        $operation = $this->request->get('do');
+        if (!in_array($operation, ['send_test_serverchan', 'send_test_qmsgchan', 'send_test_mail',
+            'send_test_msgraph', 'send_test_telegram', 'edit_theme'], true)) {
+            throw new Typecho\Widget\Exception('未知的插件操作', 400);
+        }
         $this->on($this->request->is('do=send_test_serverchan'))->sendTestServerchan();
         $this->on($this->request->is('do=send_test_qmsgchan'))->sendTestQmsgchan();
         $this->on($this->request->is('do=send_test_mail'))->sendTestMail();
